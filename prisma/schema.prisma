@@ -13,3 +13,85 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ENUM
+enum EstadoSolicitudReservacion {
+  Pendiente
+  Aprobada
+  Rechazada
+  Cancelada
+}
+
+enum TipoEvento {
+  Reunion
+  Videoconferencia
+  Presentacion
+  Capacitacion
+  Conferencia
+  Otro
+}
+
+enum TipoRecurrencia {
+  Unica
+  Diaria
+  Semanal
+  Mensual
+}
+
+enum EstadoEquipo {
+  Operativo
+  NoOperativo
+  EnMantenimiento
+  Dañado
+}
+
+enum DiaSemana {
+  Lunes
+  Martes
+  Miercoles
+  Jueves
+  Viernes
+  Sabado
+  Domingo
+}
+
+// TABLES
+
+model Salas {
+  id                   Int     @unique @default(autoincrement())
+  idDepartamento       Int     @default(0)
+  idTecnicoResponsable Int     @default(0)
+  NombreSala           String  @default("Nueva Sala")
+  Ubicacion            String
+  CapacidadMin         Int     @default(1)
+  CapacidadMax         Int
+  UrlImagen            String
+  Disponible           Boolean @default(false)
+  Notas                String  @default("")
+}
+
+model Reservacion {
+  id                          Int                        @id @default(autoincrement())
+  numeroReservacion           String                     @unique // Número único generado automáticamente
+  idUsuario                   Int // Usuario solicitante
+  idTecnicoAsignado           Int? // Técnico asignado al evento
+  idSala                      Int
+  nombreEvento                String
+  tipoEvento                  TipoEvento
+  fechaEvento                 DateTime
+  horaInicio                  DateTime
+  horaFin                     DateTime
+  numeroAsistentesEstimado    Int
+  numeroAsistentesReal        Int? // Número real después del evento
+  estadoSolicitud             EstadoSolicitudReservacion @default(Pendiente)
+  tipoRecurrencia             TipoRecurrencia            @default(Unica)
+  fechaFinRecurrencia         DateTime? // Para eventos recurrentes
+  observaciones               String?
+  fechaCreacionSolicitud      DateTime                   @default(now())
+  fechaUltimaModificacion     DateTime?
+  idUsuarioUltimaModificacion Int? // Usuario que realizó la última modificación
+  linkReunionOnline           String?
+  fallasRegistradas           String? // Registro de fallas durante el evento
+
+  @@map("Reservaciones") // Nombre real de la tabla
+}
