@@ -13,3 +13,115 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model Roles {
+  id       Int        @id @default(autoincrement())
+  nombres  String     @unique
+  usuarios Usuarios[]
+
+  @@map("roles")
+}
+
+model Departamentos {
+  id       Int        @id @default(autoincrement())
+  nombre   String     @unique
+  usuarios Usuarios[]
+  Salas    Salas[]
+
+  @@map("departamentos")
+}
+
+model Usuarios {
+  id              Int     @id @default(autoincrement())
+  nombres         String
+  apellidos       String
+  email           String  @unique
+  contraseña     String
+  id_rol          Int
+  id_departamento Int
+  Activo          Boolean @default(true)
+
+  rol           Roles           @relation(fields: [id_rol], references: [id])
+  departamento  Departamentos   @relation(fields: [id_departamento], references: [id])
+  tecnicos      Tecnicos[]
+  Reservaciones Reservaciones[]
+
+  @@map("usuarios")
+}
+
+model Tecnicos {
+  id           Int      @id @default(autoincrement())
+  idUsuario    Int      @unique
+  especialidad String?
+  Activo       Boolean  @default(true)
+  usuario      Usuarios @relation(fields: [idUsuario], references: [id])
+
+  reservaciones Reservaciones[] @relation("TecnicoReservaciones")
+  salas         Salas[]
+
+  @@map("proyectos")
+}
+
+model Reservaciones {
+  id                          Int       @id @default(autoincrement())
+  numeroReservacion           String    @unique @db.VarChar(20)
+  idUsuario                   Int
+  idTecnicoAsignado           Int?
+  idSala                      Int
+  nombreEvento                String    @db.VarChar(100)
+  tipoEvento                  String // Consider using an enum if you have fixed values
+  fechaEvento                 DateTime  @db.Date
+  horaInicio                  DateTime  @db.Time
+  horaFin                     DateTime  @db.Time
+  numeroAsistentesEstimado    Int
+  numeroAsistentesReal        Int?
+  estadoSolicitud             String    @default("Pendiente") // Consider using an enum
+  tipoRecurrencia             String    @default("Unica") // Consider using an enum
+  fechaFinRecurrencia         DateTime? @db.Date
+  observaciones               String?
+  fechaCreacionSolicitud      DateTime  @default(now())
+  fechaUltimaModificacion     DateTime?
+  idUsuarioUltimaModificacion Int?
+  linkReunionOnline           String?   @db.VarChar(255)
+  fallasRegistradas           String?
+
+  usuario                  Usuarios?                 @relation(fields: [idUsuario], references: [id])
+  tecnicoAsignado          Tecnicos?                 @relation("TecnicoReservaciones", fields: [idTecnicoAsignado], references: [id])
+  sala                     Salas                     @relation(fields: [idSala], references: [id])
+  participantesAdicionales PartcipantesAdicionales[]
+
+  @@map("Reservaciones")
+}
+
+model PartcipantesAdicionales {
+  id            Int    @id @default(autoincrement())
+  idReservacion Int
+  nombre        String @db.VarChar(100)
+  email         String @db.VarChar(100)
+
+  reservacion Reservaciones @relation(fields: [idReservacion], references: [id])
+
+  @@map("PartcipantesAdicionales")
+}
+
+model Salas {
+  id                   Int     @id @default(autoincrement())
+  idDepartamento       Int
+  idTecnicoResponsable Int
+  nombreSala           String  @db.VarChar(100)
+  ubicacion            String? @db.VarChar(255)
+  capacidadMin         Int?
+  capacidadMax         Int
+  urlImagen            String? @db.VarChar(255)
+  disponible           Boolean @default(true)
+  notas                String?
+
+  departamento       Departamentos @relation(fields: [idDepartamento], references: [id])
+  tecnicoResponsable Tecnicos      @relation(fields: [idTecnicoResponsable], references: [id])
+
+  reservaciones Reservaciones[]
+
+  @@map("Salas")
+}
+
+
