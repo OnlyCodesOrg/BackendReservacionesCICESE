@@ -14,6 +14,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
 model Roles {
   id       Int        @id @default(autoincrement())
   nombres  String     @unique
@@ -123,5 +124,6 @@ model Salas {
 
   @@map("Salas")
 }
+
 
 
