@@ -24,7 +24,6 @@ export interface Reservacion {
   fallasRegistradas?: string;
 }
 
-
 export interface ParticipanteAdicional {
   id: number;
   idReservacion: number;

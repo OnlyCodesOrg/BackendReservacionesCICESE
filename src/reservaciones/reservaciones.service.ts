@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { CreateReservacioneDto } from './dto/create-reservacione.dto';
-import { UpdateReservacioneDto } from './dto/update-reservacione.dto';
 
 /**
  * @description Servicio para manejar las reservaciones
