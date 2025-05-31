@@ -1,4 +1,4 @@
-name: Deploy to Azure Container Registry
+name: Deploy to Azure Container Registry and Container Apps
 
 on:
   push:
@@ -10,6 +10,8 @@ env:
   REGISTRY: ${{ secrets.AZURE_REGISTRY_NAME }}
   IMAGE_NAME: reservaciones-cicese
   IMAGE_TAG: ${{ github.sha }}
+  CONTAINER_APP_NAME: reservaciones-cicese-app
+  RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
 
 jobs:
   build-and-push:
@@ -40,3 +42,25 @@ jobs:
           target: production
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Azure login
+        uses: azure/login@v2.3.0
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: ${{ env.CONTAINER_APP_NAME }}
+          imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          targetPort: 3000
+          ingress: external
+          environmentVariables: |
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            NODE_ENV=production
