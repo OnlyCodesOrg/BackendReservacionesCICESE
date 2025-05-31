@@ -1,27 +1,27 @@
-import { EstadoSolicitud, TipoRecurrencia } from './common.types';
+import { EstadoSolicitud, TipoRecurrencia, TipoEvento } from './common.types';
 
 export interface Reservacion {
   id: number;
   numeroReservacion: string;
   idUsuario: number;
-  idTecnicoAsignado?: number;
+  idTecnicoAsignado?: number | null;
   idSala: number;
   nombreEvento: string;
-  tipoEvento: string;
+  tipoEvento: TipoEvento;
   fechaEvento: Date;
   horaInicio: Date;
   horaFin: Date;
   numeroAsistentesEstimado: number;
-  numeroAsistentesReal?: number;
+  numeroAsistentesReal?: number | null;
   estadoSolicitud: EstadoSolicitud;
   tipoRecurrencia: TipoRecurrencia;
-  fechaFinRecurrencia?: Date;
-  observaciones?: string;
+  fechaFinRecurrencia?: Date | null;
+  observaciones?: string | null;
   fechaCreacionSolicitud: Date;
-  fechaUltimaModificacion?: Date;
-  idUsuarioUltimaModificacion?: number;
-  linkReunionOnline?: string;
-  fallasRegistradas?: string;
+  fechaUltimaModificacion?: Date | null;
+  idUsuarioUltimaModificacion?: number | null;
+  linkReunionOnline?: string | null;
+  fallasRegistradas?: string | null;
 }
 
 export interface ParticipanteAdicional {
@@ -29,4 +29,35 @@ export interface ParticipanteAdicional {
   idReservacion: number;
   nombre: string;
   email: string;
+}
+
+export interface ReservacionEquipoSolicitado {
+  idReservacion: number;
+  idTipoEquipo: number;
+  cantidad: number;
+  notas?: string | null;
+}
+
+export interface ReservacionServicioSolicitado {
+  idReservacion: number;
+  idServicioAdicional: number;
+  cantidad?: number | null;
+  notas?: string | null;
+}
+
+export interface FechaBloqueada {
+  id: number;
+  fecha: Date;
+  motivo: string;
+  idUsuarioCreador: number;
+  activo: boolean;
+}
+
+export interface HistorialReservacion {
+  id: number;
+  idReservacion: number;
+  accionRealizada: string;
+  idUsuario: number;
+  fechaAccion: Date;
+  detalles?: string | null;
 }

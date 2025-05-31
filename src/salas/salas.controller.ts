@@ -35,7 +35,7 @@ export class SalasController {
       horaFin: string;
     },
   ) {
-    const resultado = this.salasService.validarDisponibilidadSala(
+    const resultado = await this.salasService.validarDisponibilidadSala(
       data.idSala,
       new Date(data.fechaEvento),
       data.horaInicio,

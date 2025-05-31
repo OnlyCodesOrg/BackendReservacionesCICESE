@@ -1,16 +1,16 @@
-import { ConflictoTipo } from './common.types';
+import { ConflictoTipo, EstadoEquipo } from './common.types';
 
 export interface Sala {
   id: number;
-  idDepartamento: number;
+  idDepartamento: number | null;
   idTecnicoResponsable: number;
   nombreSala: string;
-  ubicacion?: string;
-  capacidadMin?: number;
+  ubicacion?: string | null;
+  capacidadMin?: number | null;
   capacidadMax: number;
-  urlImagen?: string;
+  urlImagen?: string | null;
   disponible: boolean;
-  notas?: string;
+  notas?: string | null;
 }
 
 export interface SalaDisponible {
@@ -32,4 +32,32 @@ export interface ConflictoHorario {
     proximoHorarioDisponible?: string;
     alternativas: string[];
   };
+}
+
+export interface TipoEquipo {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+  marca?: string | null;
+  modelo?: string | null;
+  año?: number | null;
+}
+
+export interface EquipoSala {
+  id: number;
+  idSala: number;
+  idTipoEquipo: number;
+  cantidad: number;
+  estado: EstadoEquipo;
+  numeroSerie?: string | null;
+  fechaAdquisicion?: Date | null;
+  ultimaRevision?: Date | null;
+  notas?: string | null;
+}
+
+export interface ServicioAdicional {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+  costo?: number | null;
 }

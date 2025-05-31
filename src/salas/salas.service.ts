@@ -1,9 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { SalaDisponible, ConflictoHorario, Reservacion } from '../types';
+import { ReservacionesService } from 'src/reservaciones/reservaciones.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class SalasService {
-  constructor() {}
+  constructor(
+    private prisma: PrismaService,
+    private reservacionesService: ReservacionesService,
+  ) {}
 
   /**
    * Obtiene las salas disponibles dentro de un rango de fechas
@@ -68,45 +73,15 @@ export class SalasService {
    * @param horaFin Hora de fin (formato HH:MM)
    * @returns Información sobre conflictos y sugerencias
    */
-  validarDisponibilidadSala(
+  async validarDisponibilidadSala(
     idSala: number,
     fechaEvento: Date,
     horaInicio: string,
     horaFin: string,
-  ): ConflictoHorario {
-    // Simulación de reservas existentes (Obtenerlos de la base de datos)
-    const reservasExistentes: Reservacion[] = [
-      {
-        id: 1,
-        numeroReservacion: 'RES-2025-001',
-        nombreEvento: 'Reunión de Departamento',
-        fechaEvento: new Date('2025-01-15'),
-        horaInicio: new Date(`2025-01-15T09:00:00Z`),
-        horaFin: new Date(`2025-01-15T11:00:00Z`),
-        idSala: 1,
-        idUsuario: 0,
-        tipoEvento: '',
-        numeroAsistentesEstimado: 0,
-        estadoSolicitud: 'Pendiente',
-        tipoRecurrencia: 'Unica',
-        fechaCreacionSolicitud: new Date('2025-01-01T00:00:00Z'),
-      },
-      {
-        id: 2,
-        numeroReservacion: 'RES-2025-002',
-        nombreEvento: 'Conferencia Virtual',
-        fechaEvento: new Date('2025-01-15'),
-        horaInicio: new Date(`2025-01-15T14:00:00Z`),
-        horaFin: new Date(`2025-01-15T16:00:00Z`),
-        idSala: 1,
-        idUsuario: 0,
-        tipoEvento: '',
-        numeroAsistentesEstimado: 0,
-        estadoSolicitud: 'Pendiente',
-        tipoRecurrencia: 'Unica',
-        fechaCreacionSolicitud: new Date('2025-01-01T00:00:00Z'),
-      },
-    ];
+  ): Promise<ConflictoHorario> {
+    // Obtener reservas existentes de la base de datos
+    const reservasExistentes =
+      await this.reservacionesService.obtenerReservaciones();
 
     // Convertir strings de hora a objetos Date para comparación
     const fechaEventoStr = fechaEvento.toISOString().split('T')[0];
