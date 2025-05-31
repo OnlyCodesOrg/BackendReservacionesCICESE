@@ -14,100 +14,115 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum EstadoSolicitudReservacion {
+  Pendiente
+  Aprobada
+  Rechazada
+  Cancelada
+}
+
+enum TipoEvento {
+  Reunion
+  Videoconferencia
+  Presentacion
+  Capacitacion
+  Conferencia
+  Otro
+}
+
+enum TipoRecurrencia {
+  Unica
+  Diaria
+  Semanal
+  Mensual
+}
+
+enum EstadoEquipo {
+  Operativo
+  NoOperativo
+  EnMantenimiento
+  Dañado
+}
+
+enum DiaSemana {
+  Lunes
+  Martes
+  Miercoles
+  Jueves
+  Viernes
+  Sabado
+  Domingo
+}
+
 
 model Roles {
   id       Int        @id @default(autoincrement())
-  nombres  String     @unique
+  nombre   String     @unique @db.VarChar(50)
   usuarios Usuarios[]
 
-  @@map("roles")
+  @@map("Roles")
 }
 
 model Departamentos {
   id       Int        @id @default(autoincrement())
-  nombre   String     @unique
+  nombre   String     @unique @db.VarChar(100)
   usuarios Usuarios[]
   Salas    Salas[]
 
-  @@map("departamentos")
+  @@map("Departamentos")
 }
 
 model Usuarios {
   id              Int     @id @default(autoincrement())
-  nombres         String
-  apellidos       String
-  email           String  @unique
-  contraseña     String
+  nombre          String  @db.VarChar(100)
+  apellidos       String  @db.VarChar(100)
+  email           String  @unique @db.VarChar(100)
+  contraseña      String  @db.VarChar(100)
   id_rol          Int
-  id_departamento Int
-  Activo          Boolean @default(true)
+  id_departamento Int?
+  activo          Boolean @default(true)
 
-  rol           Roles           @relation(fields: [id_rol], references: [id])
-  departamento  Departamentos   @relation(fields: [id_departamento], references: [id])
-  tecnicos      Tecnicos[]
-  Reservaciones Reservaciones[]
+  rol                                   Roles                      @relation(fields: [id_rol], references: [id])
+  departamento                          Departamentos?             @relation(fields: [id_departamento], references: [id])
+  tecnicos                              Tecnicos[]
+  reservaciones                         Reservaciones[]
+  fechas_bloqueadas                     FechasBloqueadas[]         @relation("UsuarioCreadorFecha")
+  historial_reservaciones               HistorialReservaciones[]   @relation("UsuarioAccion")
+  reservaciones_ultima_modificacion     Reservaciones[]            @relation("UsuarioUltimaModificacion")
 
-  @@map("usuarios")
+  @@map("Usuarios")
 }
 
 model Tecnicos {
   id           Int      @id @default(autoincrement())
   idUsuario    Int      @unique
-  especialidad String?
-  Activo       Boolean  @default(true)
-  usuario      Usuarios @relation(fields: [idUsuario], references: [id])
+  especialidad String?  @db.VarChar(100)
+  activo       Boolean  @default(true)
+  
+  usuario                   Usuarios                   @relation(fields: [idUsuario], references: [id])
+  disponibilidad            DisponibilidadTecnicos[]
+  reservaciones             Reservaciones[]            @relation("TecnicoReservaciones")
+  salas                     Salas[]
 
-  reservaciones Reservaciones[] @relation("TecnicoReservaciones")
-  salas         Salas[]
-
-  @@map("proyectos")
+  @@map("Tecnicos")
 }
 
-model Reservaciones {
-  id                          Int       @id @default(autoincrement())
-  numeroReservacion           String    @unique @db.VarChar(20)
-  idUsuario                   Int
-  idTecnicoAsignado           Int?
-  idSala                      Int
-  nombreEvento                String    @db.VarChar(100)
-  tipoEvento                  String // Consider using an enum if you have fixed values
-  fechaEvento                 DateTime  @db.Date
-  horaInicio                  DateTime  @db.Time
-  horaFin                     DateTime  @db.Time
-  numeroAsistentesEstimado    Int
-  numeroAsistentesReal        Int?
-  estadoSolicitud             String    @default("Pendiente") // Consider using an enum
-  tipoRecurrencia             String    @default("Unica") // Consider using an enum
-  fechaFinRecurrencia         DateTime? @db.Date
-  observaciones               String?
-  fechaCreacionSolicitud      DateTime  @default(now())
-  fechaUltimaModificacion     DateTime?
-  idUsuarioUltimaModificacion Int?
-  linkReunionOnline           String?   @db.VarChar(255)
-  fallasRegistradas           String?
+model DisponibilidadTecnicos {
+  id           Int        @id @default(autoincrement())
+  idTecnico    Int
+  diaSemana    DiaSemana
+  horaInicio   DateTime   @db.Time
+  horaFin      DateTime   @db.Time
+  activo       Boolean    @default(true)
 
-  usuario                  Usuarios?                 @relation(fields: [idUsuario], references: [id])
-  tecnicoAsignado          Tecnicos?                 @relation("TecnicoReservaciones", fields: [idTecnicoAsignado], references: [id])
-  sala                     Salas                     @relation(fields: [idSala], references: [id])
-  participantesAdicionales PartcipantesAdicionales[]
+  tecnico      Tecnicos   @relation(fields: [idTecnico], references: [id])
 
-  @@map("Reservaciones")
-}
-
-model PartcipantesAdicionales {
-  id            Int    @id @default(autoincrement())
-  idReservacion Int
-  nombre        String @db.VarChar(100)
-  email         String @db.VarChar(100)
-
-  reservacion Reservaciones @relation(fields: [idReservacion], references: [id])
-
-  @@map("PartcipantesAdicionales")
+  @@map("DisponibilidadTecnicos")
 }
 
 model Salas {
   id                   Int     @id @default(autoincrement())
-  idDepartamento       Int
+  idDepartamento       Int?
   idTecnicoResponsable Int
   nombreSala           String  @db.VarChar(100)
   ubicacion            String? @db.VarChar(255)
@@ -117,12 +132,152 @@ model Salas {
   disponible           Boolean @default(true)
   notas                String?
 
-  departamento       Departamentos @relation(fields: [idDepartamento], references: [id])
-  tecnicoResponsable Tecnicos      @relation(fields: [idTecnicoResponsable], references: [id])
-
-  reservaciones Reservaciones[]
+  departamento       Departamentos? @relation(fields: [idDepartamento], references: [id])
+  tecnicoResponsable Tecnicos       @relation(fields: [idTecnicoResponsable], references: [id])
+  reservaciones      Reservaciones[]
+  equiposSala        EquiposSala[]
 
   @@map("Salas")
+}
+
+model TiposEquipo {
+  id          Int    @id @default(autoincrement())
+  nombre      String @unique @db.VarChar(100)
+  descripcion String?
+  marca       String? @db.VarChar(100)
+  modelo      String? @db.VarChar(100)
+  año         Int?
+
+  equiposSala                      EquiposSala[]
+  reservacionEquiposSolicitados    ReservacionEquiposSolicitados[]
+
+  @@map("TiposEquipo")
+}
+
+model EquiposSala {
+  id               Int          @id @default(autoincrement())
+  idSala           Int
+  idTipoEquipo     Int
+  cantidad         Int          @default(1)
+  estado           EstadoEquipo @default(Operativo)
+  numeroSerie      String?      @db.VarChar(100)
+  fechaAdquisicion DateTime?    @db.Date
+  ultimaRevision   DateTime?    @db.Date
+  notas            String?
+
+  sala        Salas       @relation(fields: [idSala], references: [id])
+  tipoEquipo  TiposEquipo @relation(fields: [idTipoEquipo], references: [id])
+
+  @@map("EquiposSala")
+}
+
+model ServiciosAdicionales {
+  id          Int      @id @default(autoincrement())
+  nombre      String   @unique @db.VarChar(100)
+  descripcion String?
+  costo       Decimal? @db.Decimal(10, 2)
+
+  reservacionServiciosSolicitados ReservacionServiciosSolicitados[]
+
+  @@map("ServiciosAdicionales")
+}
+
+model Reservaciones {
+  id                          Int                          @id @default(autoincrement())
+  numeroReservacion           String                       @unique @db.VarChar(20)
+  idUsuario                   Int
+  idTecnicoAsignado           Int?
+  idSala                      Int
+  nombreEvento                String                       @db.VarChar(100)
+  tipoEvento                  TipoEvento
+  fechaEvento                 DateTime                     @db.Date
+  horaInicio                  DateTime                     @db.Time
+  horaFin                     DateTime                     @db.Time
+  numeroAsistentesEstimado    Int
+  numeroAsistentesReal        Int?
+  estadoSolicitud             EstadoSolicitudReservacion   @default(Pendiente)
+  tipoRecurrencia             TipoRecurrencia              @default(Unica)
+  fechaFinRecurrencia         DateTime?                    @db.Date
+  observaciones               String?
+  fechaCreacionSolicitud      DateTime                     @default(now())
+  fechaUltimaModificacion     DateTime?
+  idUsuarioUltimaModificacion Int?
+  linkReunionOnline           String?                      @db.VarChar(255)
+  fallasRegistradas           String?
+
+  usuario                       Usuarios                           @relation(fields: [idUsuario], references: [id])
+  usuarioUltimaModificacion     Usuarios?                          @relation("UsuarioUltimaModificacion", fields: [idUsuarioUltimaModificacion], references: [id])
+  tecnicoAsignado               Tecnicos?                          @relation("TecnicoReservaciones", fields: [idTecnicoAsignado], references: [id])
+  sala                          Salas                              @relation(fields: [idSala], references: [id])
+  participantesAdicionales      PartcipantesAdicionales[]
+  equiposSolicitados            ReservacionEquiposSolicitados[]
+  serviciosSolicitados          ReservacionServiciosSolicitados[]
+  historialReservaciones        HistorialReservaciones[]
+
+  @@map("Reservaciones")
+}
+
+model ReservacionEquiposSolicitados {
+  idReservacion Int
+  idTipoEquipo  Int
+  cantidad      Int     @default(1)
+  notas         String?
+
+  reservacion Reservaciones @relation(fields: [idReservacion], references: [id])
+  tipoEquipo  TiposEquipo   @relation(fields: [idTipoEquipo], references: [id])
+
+  @@id([idReservacion, idTipoEquipo])
+  @@map("ReservacionEquiposSolicitados")
+}
+
+model ReservacionServiciosSolicitados {
+  idReservacion        Int
+  idServicioAdicional  Int
+  cantidad             Int?    @default(1)
+  notas                String?
+
+  reservacion         Reservaciones        @relation(fields: [idReservacion], references: [id])
+  servicioAdicional   ServiciosAdicionales @relation(fields: [idServicioAdicional], references: [id])
+
+  @@id([idReservacion, idServicioAdicional])
+  @@map("ReservacionServiciosSolicitados")
+}
+
+model PartcipantesAdicionales {
+  id            Int    @id @default(autoincrement())
+  idReservacion Int
+  nombre        String @db.VarChar(200)
+  email         String @db.VarChar(100)
+
+  reservacion Reservaciones @relation(fields: [idReservacion], references: [id])
+
+  @@map("ParticipantesAdicionales")
+}
+
+model FechasBloqueadas {
+  id                Int      @id @default(autoincrement())
+  fecha             DateTime @db.Date
+  motivo            String   @db.VarChar(255)
+  idUsuarioCreador  Int
+  activo            Boolean  @default(true)
+
+  usuarioCreador Usuarios @relation("UsuarioCreadorFecha", fields: [idUsuarioCreador], references: [id])
+
+  @@map("FechasBloqueadas")
+}
+
+model HistorialReservaciones {
+  id               Int      @id @default(autoincrement())
+  idReservacion    Int
+  accionRealizada  String   @db.VarChar(100)
+  idUsuario        Int
+  fechaAccion      DateTime @default(now())
+  detalles         String?
+
+  reservacion Reservaciones @relation(fields: [idReservacion], references: [id])
+  usuario     Usuarios      @relation("UsuarioAccion", fields: [idUsuario], references: [id])
+
+  @@map("HistorialReservaciones")
 }
 
 
