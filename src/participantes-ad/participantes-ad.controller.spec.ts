@@ -11,7 +11,9 @@ describe('ParticipantesAdController', () => {
       providers: [ParticipantesAdService],
     }).compile();
 
-    controller = module.get<ParticipantesAdController>(ParticipantesAdController);
+    controller = module.get<ParticipantesAdController>(
+      ParticipantesAdController,
+    );
   });
 
   it('should be defined', () => {
