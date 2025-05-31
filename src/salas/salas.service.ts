@@ -55,4 +55,25 @@ export class SalasService {
             return salasDisponibles;
         }
     }
+
+    validarDisponibilidad(nuevaSala: Sala): string | boolean {
+    const reservasExistentes: Sala[] = [
+      {
+        id: 1,
+        inicio: new Date('2025-05-10T12:00:00Z'),
+        fin: new Date('2025-05-10T13:00:00Z'),
+      },
+    ];
+
+    for (const reserva of reservasExistentes) {
+      if (
+        reserva.id === nuevaSala.id &&
+        nuevaSala.inicio < reserva.fin &&
+        nuevaSala.fin > reserva.inicio
+      ) {
+        return `La sala está reservada desde ${reserva.inicio.toISOString()} hasta ${reserva.fin.toISOString()}.`;
+      }
+    }
+    return `La sala está disponible para la reserva desde ${nuevaSala.inicio.toISOString()} hasta ${nuevaSala.fin.toISOString()}.`;
+  }
 }
