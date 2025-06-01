@@ -1,9 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { SalaDisponible, ConflictoHorario, Reservacion } from '../types';
+import {
+  SalaDisponible,
+  ConflictoHorario,
+  Reservacion,
+  SalaConHistorial,
+  HistorialUsoSala,
+  DetalleEventoSala,
+} from '../types';
+import { ReservacionesService } from 'src/reservaciones/reservaciones.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class SalasService {
-  constructor() {}
+  constructor(
+    private prisma: PrismaService,
+    private reservacionesService: ReservacionesService,
+  ) {}
 
   /**
    * Obtiene las salas disponibles dentro de un rango de fechas
@@ -68,45 +80,15 @@ export class SalasService {
    * @param horaFin Hora de fin (formato HH:MM)
    * @returns Información sobre conflictos y sugerencias
    */
-  validarDisponibilidadSala(
+  async validarDisponibilidadSala(
     idSala: number,
     fechaEvento: Date,
     horaInicio: string,
     horaFin: string,
-  ): ConflictoHorario {
-    // Simulación de reservas existentes (Obtenerlos de la base de datos)
-    const reservasExistentes: Reservacion[] = [
-      {
-        id: 1,
-        numeroReservacion: 'RES-2025-001',
-        nombreEvento: 'Reunión de Departamento',
-        fechaEvento: new Date('2025-01-15'),
-        horaInicio: new Date(`2025-01-15T09:00:00Z`),
-        horaFin: new Date(`2025-01-15T11:00:00Z`),
-        idSala: 1,
-        idUsuario: 0,
-        tipoEvento: '',
-        numeroAsistentesEstimado: 0,
-        estadoSolicitud: 'Pendiente',
-        tipoRecurrencia: 'Unica',
-        fechaCreacionSolicitud: new Date('2025-01-01T00:00:00Z'),
-      },
-      {
-        id: 2,
-        numeroReservacion: 'RES-2025-002',
-        nombreEvento: 'Conferencia Virtual',
-        fechaEvento: new Date('2025-01-15'),
-        horaInicio: new Date(`2025-01-15T14:00:00Z`),
-        horaFin: new Date(`2025-01-15T16:00:00Z`),
-        idSala: 1,
-        idUsuario: 0,
-        tipoEvento: '',
-        numeroAsistentesEstimado: 0,
-        estadoSolicitud: 'Pendiente',
-        tipoRecurrencia: 'Unica',
-        fechaCreacionSolicitud: new Date('2025-01-01T00:00:00Z'),
-      },
-    ];
+  ): Promise<ConflictoHorario> {
+    // Obtener reservas existentes de la base de datos
+    const reservasExistentes =
+      await this.reservacionesService.obtenerReservaciones();
 
     // Convertir strings de hora a objetos Date para comparación
     const fechaEventoStr = fechaEvento.toISOString().split('T')[0];
@@ -219,6 +201,198 @@ export class SalasService {
     return {
       proximoHorarioDisponible: alternativas[0],
       alternativas,
+    };
+  }
+
+  /**
+   * Obtiene la lista de salas con información resumida de su historial de uso
+   * @returns Lista de salas con estadísticas de uso
+   */
+  async obtenerSalasConHistorial(): Promise<SalaConHistorial[]> {
+    // Obtener todas las salas
+    const salas = await this.prisma.salas.findMany({
+      include: {
+        _count: {
+          select: {
+            reservaciones: {
+              where: {
+                estadoSolicitud: 'Aprobada',
+              },
+            },
+          },
+        },
+        reservaciones: {
+          where: {
+            estadoSolicitud: 'Aprobada',
+          },
+          orderBy: {
+            fechaEvento: 'desc',
+          },
+          take: 1,
+          select: {
+            fechaEvento: true,
+          },
+        },
+      },
+    });
+
+    return salas.map((sala) => ({
+      id: sala.id,
+      nombreSala: sala.nombreSala,
+      ubicacion: sala.ubicacion,
+      capacidadMax: sala.capacidadMax,
+      disponible: sala.disponible,
+      totalEventos: sala._count.reservaciones,
+      ultimoUso: sala.reservaciones[0]?.fechaEvento || null,
+    }));
+  }
+
+  /**
+   * Obtiene el historial completo de uso de una sala específica
+   * @param idSala ID de la sala
+   * @param limite Número máximo de registros a retornar (default: 50)
+   * @param offset Offset para paginación (default: 0)
+   * @returns Historial de eventos de la sala
+   */
+  async obtenerHistorialSala(
+    idSala: number,
+    limite: number = 50,
+    offset: number = 0,
+  ): Promise<HistorialUsoSala[]> {
+    const reservaciones = await this.prisma.reservaciones.findMany({
+      where: {
+        idSala: idSala,
+        estadoSolicitud: 'Aprobada',
+      },
+      include: {
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true,
+          },
+        },
+        equiposSolicitados: {
+          include: {
+            tipoEquipo: {
+              select: {
+                nombre: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        fechaEvento: 'desc',
+      },
+      take: limite,
+      skip: offset,
+    });
+
+    return reservaciones.map((reservacion) => ({
+      id: reservacion.id,
+      numeroReservacion: reservacion.numeroReservacion,
+      nombreEvento: reservacion.nombreEvento,
+      tipoEvento: reservacion.tipoEvento,
+      fechaEvento: reservacion.fechaEvento,
+      horaInicio: reservacion.horaInicio,
+      horaFin: reservacion.horaFin,
+      numeroAsistentesReal: reservacion.numeroAsistentesReal,
+      responsableSala: {
+        id: reservacion.usuario.id,
+        nombre: reservacion.usuario.nombre,
+        email: reservacion.usuario.email,
+      },
+      fallasRegistradas: reservacion.fallasRegistradas,
+      equiposUsados: reservacion.equiposSolicitados.map((equipo) => ({
+        nombre: equipo.tipoEquipo.nombre,
+        cantidad: equipo.cantidad,
+        estado: 'Solicitado', // Se podría extender con más información del estado
+      })),
+    }));
+  }
+
+  /**
+   * Obtiene el detalle completo de un evento específico
+   * @param idReservacion ID de la reservación
+   * @returns Detalle completo del evento
+   */
+  async obtenerDetalleEvento(
+    idReservacion: number,
+  ): Promise<DetalleEventoSala | null> {
+    const reservacion = await this.prisma.reservaciones.findUnique({
+      where: { id: idReservacion },
+      include: {
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true,
+          },
+        },
+        equiposSolicitados: {
+          include: {
+            tipoEquipo: {
+              select: {
+                nombre: true,
+              },
+            },
+          },
+        },
+        participantesAdicionales: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true,
+          },
+        },
+        serviciosSolicitados: {
+          include: {
+            servicioAdicional: {
+              select: {
+                nombre: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!reservacion) {
+      return null;
+    }
+
+    const historialReservacion: HistorialUsoSala = {
+      id: reservacion.id,
+      numeroReservacion: reservacion.numeroReservacion,
+      nombreEvento: reservacion.nombreEvento,
+      tipoEvento: reservacion.tipoEvento,
+      fechaEvento: reservacion.fechaEvento,
+      horaInicio: reservacion.horaInicio,
+      horaFin: reservacion.horaFin,
+      numeroAsistentesReal: reservacion.numeroAsistentesReal,
+      responsableSala: {
+        id: reservacion.usuario.id,
+        nombre: reservacion.usuario.nombre,
+        email: reservacion.usuario.email,
+      },
+      fallasRegistradas: reservacion.fallasRegistradas,
+      equiposUsados: reservacion.equiposSolicitados.map((equipo) => ({
+        nombre: equipo.tipoEquipo.nombre,
+        cantidad: equipo.cantidad,
+        estado: 'Solicitado',
+      })),
+    };
+
+    return {
+      reservacion: historialReservacion,
+      participantes: reservacion.participantesAdicionales,
+      serviciosAdicionales: reservacion.serviciosSolicitados.map(
+        (servicio) => ({
+          nombre: servicio.servicioAdicional.nombre,
+          cantidad: servicio.cantidad,
+        }),
+      ),
     };
   }
 }
