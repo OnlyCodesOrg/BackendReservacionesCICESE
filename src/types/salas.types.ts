@@ -61,3 +61,48 @@ export interface ServicioAdicional {
   descripcion?: string | null;
   costo?: number | null;
 }
+
+export interface HistorialUsoSala {
+  id: number;
+  numeroReservacion: string;
+  nombreEvento: string;
+  tipoEvento: string;
+  fechaEvento: Date;
+  horaInicio: Date;
+  horaFin: Date;
+  numeroAsistentesReal?: number | null;
+  responsableSala: {
+    id: number;
+    nombre: string;
+    email: string;
+  };
+  fallasRegistradas?: string | null;
+  equiposUsados: {
+    nombre: string;
+    cantidad: number;
+    estado: string;
+  }[];
+}
+
+export interface SalaConHistorial {
+  id: number;
+  nombreSala: string;
+  ubicacion?: string | null;
+  capacidadMax: number;
+  disponible: boolean;
+  totalEventos: number;
+  ultimoUso?: Date | null;
+}
+
+export interface DetalleEventoSala {
+  reservacion: HistorialUsoSala;
+  participantes: {
+    id: number;
+    nombre: string;
+    email: string;
+  }[];
+  serviciosAdicionales: {
+    nombre: string;
+    cantidad?: number | null;
+  }[];
+}

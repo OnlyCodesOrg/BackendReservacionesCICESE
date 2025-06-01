@@ -14,8 +14,19 @@ export type TipoEvento =
 
 export type TipoRecurrencia = 'Unica' | 'Diaria' | 'Semanal' | 'Mensual';
 
-export type EstadoEquipo = 'Operativo' | 'NoOperativo' | 'EnMantenimiento' | 'Dañado';
+export type EstadoEquipo =
+  | 'Operativo'
+  | 'NoOperativo'
+  | 'EnMantenimiento'
+  | 'Dañado';
 
-export type DiaSemana = 'Lunes' | 'Martes' | 'Miercoles' | 'Jueves' | 'Viernes' | 'Sabado' | 'Domingo';
+export type DiaSemana =
+  | 'Lunes'
+  | 'Martes'
+  | 'Miercoles'
+  | 'Jueves'
+  | 'Viernes'
+  | 'Sabado'
+  | 'Domingo';
 
 export type ConflictoTipo = 'reserva_existente' | 'bloqueo_sala';

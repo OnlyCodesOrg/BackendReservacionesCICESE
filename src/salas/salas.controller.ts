@@ -1,8 +1,26 @@
-import { Controller, Get, Post, Patch, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { SalasService } from './salas.service';
 import { ValidarDisponibilidadDto } from './dto/validar-disponibilidad.dto';
 import { ValidarDisponibilidadResponseDto } from './dto/validar-disponibilidad-response.dto';
+import { HistorialSalasResponseDto } from './dto/historial-salas-response.dto';
+import { HistorialUsoSalaResponseDto } from './dto/historial-uso-sala-response.dto';
+import { DetalleEventoResponseDto } from './dto/detalle-evento-response.dto';
 
 @ApiTags('salas')
 @Controller('salas')
@@ -70,6 +88,137 @@ export class SalasController {
       success: true,
       message: 'Horario disponible',
       conflict: resultado,
+    };
+  }
+
+  /**
+   * Obtiene la lista de salas con información resumida de su historial
+   * @returns Lista de salas con estadísticas de uso
+   */
+  @Get('historial')
+  @ApiOperation({
+    summary: 'Obtener salas con información de historial',
+    description:
+      'Obtiene la lista de salas con estadísticas resumidas de su historial de uso',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de salas obtenida exitosamente',
+    type: HistorialSalasResponseDto,
+  })
+  async obtenerSalasConHistorial(): Promise<HistorialSalasResponseDto> {
+    const salas = await this.salasService.obtenerSalasConHistorial();
+    return {
+      success: true,
+      message: 'Salas obtenidas exitosamente',
+      data: salas,
+    };
+  }
+
+  /**
+   * Obtiene el historial de uso de una sala específica
+   * @param idSala ID de la sala
+   * @param limite Número máximo de registros
+   * @param offset Offset para paginación
+   * @returns Historial de eventos de la sala
+   */
+  @Get('historial/:idSala')
+  @ApiOperation({
+    summary: 'Obtener historial de uso de sala',
+    description:
+      'Obtiene el historial completo de eventos realizados en una sala específica',
+  })
+  @ApiParam({
+    name: 'idSala',
+    description: 'ID de la sala',
+    type: 'number',
+  })
+  @ApiQuery({
+    name: 'limite',
+    description: 'Número máximo de registros a retornar',
+    required: false,
+    type: 'number',
+  })
+  @ApiQuery({
+    name: 'offset',
+    description: 'Offset para paginación',
+    required: false,
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Historial obtenido exitosamente',
+    type: HistorialUsoSalaResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Sala no encontrada',
+  })
+  async obtenerHistorialSala(
+    @Param('idSala') idSala: string,
+    @Query('limite') limite?: string,
+    @Query('offset') offset?: string,
+  ): Promise<HistorialUsoSalaResponseDto> {
+    const id = parseInt(idSala);
+    const lim = limite ? parseInt(limite) : 50;
+    const off = offset ? parseInt(offset) : 0;
+
+    const historial = await this.salasService.obtenerHistorialSala(
+      id,
+      lim,
+      off,
+    );
+
+    return {
+      success: true,
+      message: 'Historial obtenido exitosamente',
+      data: historial,
+    };
+  }
+
+  /**
+   * Obtiene el detalle completo de un evento específico
+   * @param idReservacion ID de la reservación
+   * @returns Detalle completo del evento
+   */
+  @Get('evento/:idReservacion')
+  @ApiOperation({
+    summary: 'Obtener detalle de evento',
+    description:
+      'Obtiene el detalle completo de un evento específico incluyendo participantes y servicios',
+  })
+  @ApiParam({
+    name: 'idReservacion',
+    description: 'ID de la reservación',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Detalle del evento obtenido exitosamente',
+    type: DetalleEventoResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Evento no encontrado',
+  })
+  async obtenerDetalleEvento(
+    @Param('idReservacion') idReservacion: string,
+  ): Promise<DetalleEventoResponseDto> {
+    const id = parseInt(idReservacion);
+    const detalle = await this.salasService.obtenerDetalleEvento(id);
+
+    if (!detalle) {
+      return {
+        success: false,
+        message: 'Evento no encontrado',
+        data: null,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Detalle del evento obtenido exitosamente',
+      data: detalle,
     };
   }
 }
