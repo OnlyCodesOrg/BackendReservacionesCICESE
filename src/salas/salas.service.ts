@@ -1,79 +1,398 @@
 import { Injectable } from '@nestjs/common';
+import {
+  SalaDisponible,
+  ConflictoHorario,
+  Reservacion,
+  SalaConHistorial,
+  HistorialUsoSala,
+  DetalleEventoSala,
+} from '../types';
+import { ReservacionesService } from 'src/reservaciones/reservaciones.service';
+import { PrismaService } from '../prisma/prisma.service';
 
-type Sala = {
-    id: number,
-    inicio: Date,
-    fin: Date
-}
 @Injectable()
 export class SalasService {
-    constructor() { }
+  constructor(
+    private prisma: PrismaService,
+    private reservacionesService: ReservacionesService,
+  ) {}
 
-    /**
-     * Obtiene las salas disponibles dentro de un rango de fechas
-     * @param fechaInicio 
-     * @param fechaFin 
-     * @param salasSeleccionadas
-     * @returns La lista de salas disponibles dentro del rango de tiempo
-     */
-    ObtenerSalas(fechaInicio: Date, fechaFin: Date, salasSeleccionadas?: number[]) {
-        const sala1: Sala = {
-            id: 1,
-            inicio: new Date("2025-05-10T00:00:00Z"),
-            fin: new Date("2025-05-11T00:00:00Z")
-        }
-        const sala2: Sala = {
-            id: 2,
-            inicio: new Date("2025-06-10T00:00:00Z"),
-            fin: new Date("2025-06-11T00:00:00Z")
-        }
-        const sala3: Sala = {
-            id: 3,
-            inicio: new Date("2025-06-20T00:00:00Z"),
-            fin: new Date("2025-06-21T00:00:00Z")
-        }
-        const salas = [sala1, sala2, sala3];
+  /**
+   * Obtiene las salas disponibles dentro de un rango de fechas
+   * @param fechaInicio
+   * @param fechaFin
+   * @param salasSeleccionadas
+   * @returns La lista de salas disponibles dentro del rango de tiempo
+   */
+  ObtenerSalas(
+    fechaInicio: Date,
+    fechaFin: Date,
+    salasSeleccionadas?: number[],
+  ) {
+    const sala1: SalaDisponible = {
+      id: 1,
+      inicio: new Date('2025-05-10T00:00:00Z'),
+      fin: new Date('2025-05-11T00:00:00Z'),
+    };
+    const sala2: SalaDisponible = {
+      id: 2,
+      inicio: new Date('2025-06-10T00:00:00Z'),
+      fin: new Date('2025-06-11T00:00:00Z'),
+    };
+    const sala3: SalaDisponible = {
+      id: 3,
+      inicio: new Date('2025-06-20T00:00:00Z'),
+      fin: new Date('2025-06-21T00:00:00Z'),
+    };
+    const salas = [sala1, sala2, sala3];
 
-        let salasDisponibles;
-        // Si hay salas seleccionadas por el usuario
-        if (salasSeleccionadas && salasSeleccionadas.length > 0) {
-            // Filtrar salas dentro del rango
-            salasDisponibles = salas.filter(current => current.inicio >= fechaInicio && current.fin <= fechaFin);
+    let salasDisponibles;
+    // Si hay salas seleccionadas por el usuario
+    if (salasSeleccionadas && salasSeleccionadas.length > 0) {
+      // Filtrar salas dentro del rango
+      salasDisponibles = salas.filter(
+        (current) => current.inicio >= fechaInicio && current.fin <= fechaFin,
+      );
 
-            // Filtrar salas seleccionadas
-            let salasFiltradas = new Array<any>;
-            salasSeleccionadas.forEach((currentSelected) => {
-                salasDisponibles.forEach((currentDisp) => {
-                    if(currentSelected === currentDisp.id){
-                        salasFiltradas.push(currentDisp);
-                    }
-                })
-            })
-            return salasFiltradas;
-        } else {
-            salasDisponibles = salas.filter(current => current.inicio >= fechaInicio && current.fin <= fechaFin);
-            return salasDisponibles;
-        }
+      // Filtrar salas seleccionadas
+      let salasFiltradas = new Array<any>();
+      salasSeleccionadas.forEach((currentSelected) => {
+        salasDisponibles.forEach((currentDisp) => {
+          if (currentSelected === currentDisp.id) {
+            salasFiltradas.push(currentDisp);
+          }
+        });
+      });
+      return salasFiltradas;
+    } else {
+      salasDisponibles = salas.filter(
+        (current) => current.inicio >= fechaInicio && current.fin <= fechaFin,
+      );
+      return salasDisponibles;
+    }
+  }
+
+  /**
+   * Valida si hay conflictos de horario para una reserva
+   * @param idSala ID de la sala a validar
+   * @param fechaEvento Fecha del evento
+   * @param horaInicio Hora de inicio (formato HH:MM)
+   * @param horaFin Hora de fin (formato HH:MM)
+   * @returns Información sobre conflictos y sugerencias
+   */
+  async validarDisponibilidadSala(
+    idSala: number,
+    fechaEvento: Date,
+    horaInicio: string,
+    horaFin: string,
+  ): Promise<ConflictoHorario> {
+    // Obtener reservas existentes de la base de datos
+    const reservasExistentes =
+      await this.reservacionesService.obtenerReservaciones();
+
+    // Convertir strings de hora a objetos Date para comparación
+    const fechaEventoStr = fechaEvento.toISOString().split('T')[0];
+    const inicioSolicitado = new Date(`${fechaEventoStr}T${horaInicio}:00Z`);
+    const finSolicitado = new Date(`${fechaEventoStr}T${horaFin}:00Z`);
+
+    // Buscar conflictos
+    const conflictos = reservasExistentes.filter((reserva) => {
+      return (
+        reserva.idSala === idSala &&
+        reserva.fechaEvento.toISOString().split('T')[0] === fechaEventoStr &&
+        this.hayTraslapeHorario(
+          inicioSolicitado,
+          finSolicitado,
+          reserva.horaInicio,
+          reserva.horaFin,
+        )
+      );
+    });
+
+    if (conflictos.length > 0) {
+      const primerConflicto = conflictos[0];
+      return {
+        hasConflict: true,
+        conflictType: 'reserva_existente',
+        conflictDetails: {
+          nombreEvento: primerConflicto.nombreEvento,
+          numeroReservacion: primerConflicto.numeroReservacion,
+          horaInicio: primerConflicto.horaInicio.toTimeString().substr(0, 5),
+          horaFin: primerConflicto.horaFin.toTimeString().substr(0, 5),
+        },
+        sugerencias: this.generarSugerenciasHorario(
+          idSala,
+          fechaEvento,
+          reservasExistentes,
+        ),
+      };
     }
 
-    validarDisponibilidad(nuevaSala: Sala): string | boolean {
-    const reservasExistentes: Sala[] = [
-      {
-        id: 1,
-        inicio: new Date('2025-05-10T12:00:00Z'),
-        fin: new Date('2025-05-10T13:00:00Z'),
-      },
-    ];
+    return { hasConflict: false };
+  }
 
-    for (const reserva of reservasExistentes) {
-      if (
-        reserva.id === nuevaSala.id &&
-        nuevaSala.inicio < reserva.fin &&
-        nuevaSala.fin > reserva.inicio
-      ) {
-        return `La sala está reservada desde ${reserva.inicio.toISOString()} hasta ${reserva.fin.toISOString()}.`;
+  /**
+   * Verifica si hay traslape entre dos rangos de horario
+   */
+  private hayTraslapeHorario(
+    inicio1: Date,
+    fin1: Date,
+    inicio2: Date,
+    fin2: Date,
+  ): boolean {
+    return inicio1 < fin2 && fin1 > inicio2;
+  }
+
+  /**
+   * Genera sugerencias de horarios disponibles
+   */
+  private generarSugerenciasHorario(
+    idSala: number,
+    fechaEvento: Date,
+    reservasExistentes: Reservacion[],
+  ): { proximoHorarioDisponible?: string; alternativas: string[] } {
+    // Filtrar reservas del día específico
+    const fechaEventoStr = fechaEvento.toISOString().split('T')[0];
+    const reservasDelDia = reservasExistentes
+      .filter(
+        (r) =>
+          r.idSala === idSala &&
+          r.fechaEvento.toISOString().split('T')[0] === fechaEventoStr,
+      )
+      .sort((a, b) => a.horaInicio.getTime() - b.horaInicio.getTime());
+
+    const alternativas: string[] = [];
+
+    // Sugerir horarios antes de la primera reserva
+    if (reservasDelDia.length > 0) {
+      const primeraReserva = reservasDelDia[0];
+      if (primeraReserva.horaInicio.getHours() > 8) {
+        alternativas.push(
+          `08:00 - ${primeraReserva.horaInicio.toTimeString().substr(0, 5)}`,
+        );
       }
     }
-    return `La sala está disponible para la reserva desde ${nuevaSala.inicio.toISOString()} hasta ${nuevaSala.fin.toISOString()}.`;
+
+    // Sugerir horarios entre reservas
+    for (let i = 0; i < reservasDelDia.length - 1; i++) {
+      const finActual = reservasDelDia[i].horaFin;
+      const inicioSiguiente = reservasDelDia[i + 1].horaInicio;
+
+      const diferencia =
+        (inicioSiguiente.getTime() - finActual.getTime()) / (1000 * 60); // minutos
+      if (diferencia >= 60) {
+        // Al menos 1 hora disponible
+        alternativas.push(
+          `${finActual.toTimeString().substr(0, 5)} - ${inicioSiguiente.toTimeString().substr(0, 5)}`,
+        );
+      }
+    }
+
+    // Sugerir horarios después de la última reserva
+    if (reservasDelDia.length > 0) {
+      const ultimaReserva = reservasDelDia[reservasDelDia.length - 1];
+      if (ultimaReserva.horaFin.getHours() < 18) {
+        alternativas.push(
+          `${ultimaReserva.horaFin.toTimeString().substr(0, 5)} - 18:00`,
+        );
+      }
+    }
+
+    return {
+      proximoHorarioDisponible: alternativas[0],
+      alternativas,
+    };
+  }
+
+  /**
+   * Obtiene la lista de salas con información resumida de su historial de uso
+   * @returns Lista de salas con estadísticas de uso
+   */
+  async obtenerSalasConHistorial(): Promise<SalaConHistorial[]> {
+    // Obtener todas las salas
+    const salas = await this.prisma.salas.findMany({
+      include: {
+        _count: {
+          select: {
+            reservaciones: {
+              where: {
+                estadoSolicitud: 'Aprobada',
+              },
+            },
+          },
+        },
+        reservaciones: {
+          where: {
+            estadoSolicitud: 'Aprobada',
+          },
+          orderBy: {
+            fechaEvento: 'desc',
+          },
+          take: 1,
+          select: {
+            fechaEvento: true,
+          },
+        },
+      },
+    });
+
+    return salas.map((sala) => ({
+      id: sala.id,
+      nombreSala: sala.nombreSala,
+      ubicacion: sala.ubicacion,
+      capacidadMax: sala.capacidadMax,
+      disponible: sala.disponible,
+      totalEventos: sala._count.reservaciones,
+      ultimoUso: sala.reservaciones[0]?.fechaEvento || null,
+    }));
+  }
+
+  /**
+   * Obtiene el historial completo de uso de una sala específica
+   * @param idSala ID de la sala
+   * @param limite Número máximo de registros a retornar (default: 50)
+   * @param offset Offset para paginación (default: 0)
+   * @returns Historial de eventos de la sala
+   */
+  async obtenerHistorialSala(
+    idSala: number,
+    limite: number = 50,
+    offset: number = 0,
+  ): Promise<HistorialUsoSala[]> {
+    const reservaciones = await this.prisma.reservaciones.findMany({
+      where: {
+        idSala: idSala,
+        estadoSolicitud: 'Aprobada',
+      },
+      include: {
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true,
+          },
+        },
+        equiposSolicitados: {
+          include: {
+            tipoEquipo: {
+              select: {
+                nombre: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        fechaEvento: 'desc',
+      },
+      take: limite,
+      skip: offset,
+    });
+
+    return reservaciones.map((reservacion) => ({
+      id: reservacion.id,
+      numeroReservacion: reservacion.numeroReservacion,
+      nombreEvento: reservacion.nombreEvento,
+      tipoEvento: reservacion.tipoEvento,
+      fechaEvento: reservacion.fechaEvento,
+      horaInicio: reservacion.horaInicio,
+      horaFin: reservacion.horaFin,
+      numeroAsistentesReal: reservacion.numeroAsistentesReal,
+      responsableSala: {
+        id: reservacion.usuario.id,
+        nombre: reservacion.usuario.nombre,
+        email: reservacion.usuario.email,
+      },
+      fallasRegistradas: reservacion.fallasRegistradas,
+      equiposUsados: reservacion.equiposSolicitados.map((equipo) => ({
+        nombre: equipo.tipoEquipo.nombre,
+        cantidad: equipo.cantidad,
+        estado: 'Solicitado', // Se podría extender con más información del estado
+      })),
+    }));
+  }
+
+  /**
+   * Obtiene el detalle completo de un evento específico
+   * @param idReservacion ID de la reservación
+   * @returns Detalle completo del evento
+   */
+  async obtenerDetalleEvento(
+    idReservacion: number,
+  ): Promise<DetalleEventoSala | null> {
+    const reservacion = await this.prisma.reservaciones.findUnique({
+      where: { id: idReservacion },
+      include: {
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true,
+          },
+        },
+        equiposSolicitados: {
+          include: {
+            tipoEquipo: {
+              select: {
+                nombre: true,
+              },
+            },
+          },
+        },
+        participantesAdicionales: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true,
+          },
+        },
+        serviciosSolicitados: {
+          include: {
+            servicioAdicional: {
+              select: {
+                nombre: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!reservacion) {
+      return null;
+    }
+
+    const historialReservacion: HistorialUsoSala = {
+      id: reservacion.id,
+      numeroReservacion: reservacion.numeroReservacion,
+      nombreEvento: reservacion.nombreEvento,
+      tipoEvento: reservacion.tipoEvento,
+      fechaEvento: reservacion.fechaEvento,
+      horaInicio: reservacion.horaInicio,
+      horaFin: reservacion.horaFin,
+      numeroAsistentesReal: reservacion.numeroAsistentesReal,
+      responsableSala: {
+        id: reservacion.usuario.id,
+        nombre: reservacion.usuario.nombre,
+        email: reservacion.usuario.email,
+      },
+      fallasRegistradas: reservacion.fallasRegistradas,
+      equiposUsados: reservacion.equiposSolicitados.map((equipo) => ({
+        nombre: equipo.tipoEquipo.nombre,
+        cantidad: equipo.cantidad,
+        estado: 'Solicitado',
+      })),
+    };
+
+    return {
+      reservacion: historialReservacion,
+      participantes: reservacion.participantesAdicionales,
+      serviciosAdicionales: reservacion.serviciosSolicitados.map(
+        (servicio) => ({
+          nombre: servicio.servicioAdicional.nombre,
+          cantidad: servicio.cantidad,
+        }),
+      ),
+    };
   }
 }
