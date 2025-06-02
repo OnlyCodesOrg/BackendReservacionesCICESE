@@ -1,13 +1,16 @@
+// src/auth/auth.service.ts
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 
-/**
- * Servicio de autenticación que valida usuarios y genera JWT.
- * Utiliza Prisma para acceder a la base de datos y bcrypt para comparar contraseñas.
- */
-export type JwtPayload = { sub: number; email: string; idRol: number };
+export type JwtPayload = {
+  sub: number;
+  email: string;
+  idRol: number;
+  nombre: string;
+  apellidos: string;
+};
 
 @Injectable()
 export class AuthService {
@@ -16,11 +19,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  /**
-   * Valida las credenciales: busca por correo y compara contraseña.
-   * Si es correcto, devuelve el objeto del usuario (sin la contraseña).
-   * Si falla, arroja UnauthorizedException.
-   */
   async validateUser(email: string, pass: string) {
     const user = await this.prisma.usuarios.findUnique({
       where: { email },
@@ -29,26 +27,33 @@ export class AuthService {
         email: true,
         contraseña: true,
         id_rol: true,
+        nombre: true,
+        apellidos: true,
       },
     });
 
     if (!user) {
       throw new UnauthorizedException('Correo no encontrado.');
     }
-    // Comparamos la contraseña proporcionada con la almacenada en la base de datos 
+
     const isMatch = await bcrypt.compare(pass, user.contraseña);
     if (!isMatch) {
       throw new UnauthorizedException('La contraseña es incorrecta.');
     }
+
+    // Extraemos la contraseña y devolvemos el resto
     const { contraseña, ...result } = user;
-    return result;
+    return result; // { id, email, id_rol, nombre, apellidos }
   }
 
-  /**
-   * Genera un JWT a partir de la info del usuario validado.
-   */
-  async login(user: { id: number; email: string; id_rol: number }) {
-    const payload: JwtPayload = { sub: user.id, email: user.email, idRol: user.id_rol };
+  async login(user: { id: number; email: string; id_rol: number; nombre: string; apellidos: string }) {
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      idRol: user.id_rol,
+      nombre: user.nombre,
+      apellidos: user.apellidos,
+    };
     return {
       access_token: this.jwtService.sign(payload),
     };
