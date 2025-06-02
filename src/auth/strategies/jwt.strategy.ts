@@ -20,6 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     idRol: number;
     nombre: string;
     apellidos: string;
+    id_departamento?: number | null;
   }) {
     return {
       userId: payload.sub,
@@ -27,6 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       idRol: payload.idRol,
       nombre: payload.nombre,
       apellidos: payload.apellidos,
+      id_departamento: payload.id_departamento || null,
     };
   }
 }
