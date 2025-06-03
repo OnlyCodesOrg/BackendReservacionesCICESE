@@ -12,4 +12,9 @@ export class ReservacionesController {
   async create(@Body() createReservacioneDto: CreateReservacioneDto) {
     return await this.reservacionesService.crearReservacion(createReservacioneDto);
   }
+
+  @Get('historial/:idUsuario')
+  async reservacionesAnteriores(@Body() idUsuario: number) {
+    return await this.reservacionesService.reservacionesAnteriores(idUsuario);
+  }
 }
