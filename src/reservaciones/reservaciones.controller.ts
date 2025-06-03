@@ -19,4 +19,9 @@ export class ReservacionesController {
   create(@Body() createReservacioneDto: CreateReservacioneDto) {
     return this.reservacionesService.crearReservacion(createReservacioneDto);
   }
+
+  @Get('historial/:idUsuario')
+  async reservacionesAnteriores(@Body() idUsuario: number) {
+    return await this.reservacionesService.reservacionesAnteriores(idUsuario);
+  }
 }
