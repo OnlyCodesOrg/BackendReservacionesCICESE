@@ -2,10 +2,13 @@ import {
   Controller,
   Get,
   Post,
-  Patch,
   Body,
   Param,
   Query,
+  ParseIntPipe,
+  NotFoundException,
+  Patch,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,6 +25,7 @@ import { HistorialSalasResponseDto } from './dto/historial-salas-response.dto';
 import { HistorialUsoSalaResponseDto } from './dto/historial-uso-sala-response.dto';
 import { DetalleEventoResponseDto } from './dto/detalle-evento-response.dto';
 import { InventarioSalaResponseDto } from './dto/inventario-sala.dto';
+import { ActualizarInventarioSalaDto, ActualizarInventarioResponseDto } from './dto/actualizar-inventario.dto';
 
 @ApiTags('salas')
 @Controller('salas')
@@ -232,6 +236,49 @@ export class SalasController {
         ubicacion: resultado.sala.ubicacion || undefined,
       },
       inventario: resultado.inventario,
+    };
+  }
+
+  @Post('inventario/:idSala')
+  @ApiOperation({
+    summary: 'Actualizar inventario de sala',
+    description: 'Permite a un técnico modificar el inventario de una sala específica',
+  })
+  @ApiParam({
+    name: 'idSala',
+    description: 'ID de la sala',
+    type: 'number',
+  })
+  @ApiBody({ type: ActualizarInventarioSalaDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Inventario actualizado exitosamente',
+    type: ActualizarInventarioResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Sala no encontrada',
+  })
+  async actualizarInventarioSala(
+    @Param('idSala') idSala: string,
+    @Body() actualizarInventarioDto: ActualizarInventarioSalaDto,
+  ): Promise<ActualizarInventarioResponseDto> {
+    const id = parseInt(idSala);
+    
+    // Verificar que el ID de la sala en el path coincide con el del body
+    if (actualizarInventarioDto.idSala && actualizarInventarioDto.idSala !== id) {
+      throw new BadRequestException('El ID de la sala en el path no coincide con el ID en el body');
+    }
+    
+    const resultado = await this.salasService.actualizarInventarioSala(
+      id,
+      actualizarInventarioDto.elementos,
+    );
+
+    return {
+      success: true,
+      message: 'Inventario actualizado exitosamente',
+      sala: resultado,
     };
   }
 

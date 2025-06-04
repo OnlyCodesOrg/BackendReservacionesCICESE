@@ -14,7 +14,7 @@ import * as path from 'path';
 import { Resend } from 'resend';
 @Injectable()
 export class ReservacionesService {
-  private resend = new Resend(process.env.RESEND_API_KEY);
+  private resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
   constructor(private prisma: PrismaService) {}
 
   async crearReservacion(createDto: CreateReservacioneDto) {
@@ -91,12 +91,12 @@ export class ReservacionesService {
     departamento: any | null = null,
   ) {
     try {
-      const templatePath = path.join(
-        __dirname,
-        '..',
-        'template',
-        'correo_cicese_formato.hbs',
-      );
+      if (!this.resend) {
+        console.log('⚠️ Resend no está configurado. Saltando envío de email.');
+        return;
+      }
+      
+      const templatePath = path.join(__dirname, '..', 'template', 'correo_cicese_formato.hbs');
       console.log('📧 Intentando leer template desde:', templatePath);
 
       const templateHtml = fs.readFileSync(templatePath, 'utf8');
@@ -132,6 +132,25 @@ export class ReservacionesService {
       console.error('❌ Error al enviar email de confirmación:', error.message);
       // No lanzamos la excepción para que no afecte la creación de la reservación
     }
+  }
+
+  async enviarCorreoPrueba() {
+    if (!this.resend) {
+      return {
+        message: 'Resend no está configurado. No se pudo enviar el correo de prueba.',
+      };
+    }
+    
+    this.resend.emails.send({
+      from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
+      to: 'gonzalez372576@uabc.edu.mx',
+      subject: 'Prueba de envío de correo',
+      html: '<h1>¡Hola!</h1><p>Este es un correo de prueba.</p>',
+    });
+
+    return {
+      message: 'Correo de prueba enviado correctamente',
+    };
   }
 
   /**

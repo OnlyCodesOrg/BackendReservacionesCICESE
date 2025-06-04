@@ -13,9 +13,9 @@ export class InventarioItemDto {
       Operativo: 4,
       Dañado: 1,
       NoOperativo: 0,
-      EnMantenimiento: 0
+      EnMantenimiento: 0,
     },
-    type: Object
+    type: Object,
   })
   detalles: {
     Operativo?: number;
@@ -25,7 +25,6 @@ export class InventarioItemDto {
     [key: string]: number | undefined;
   };
 }
-
 
 export class InventarioSalaResponseDto {
   @ApiProperty({

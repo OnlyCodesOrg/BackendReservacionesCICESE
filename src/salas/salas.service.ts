@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
 import {
   SalaDisponible,
   ConflictoHorario,
@@ -229,29 +230,35 @@ export class SalasService {
     const inventarioMap = new Map<string, any>();
 
     const elementosInventario = [
-      'Cámara', 'Micrófono', 'Pantalla', 'Proyector', 
-      'Silla', 'Mesa', 'Pizarrón', 'Plumón', 'Borrador'
+      'Cámara',
+      'Micrófono',
+      'Pantalla',
+      'Proyector',
+      'Silla',
+      'Mesa',
+      'Pizarrón',
+      'Plumón',
+      'Borrador',
     ];
 
-    elementosInventario.forEach(elemento => {
+    elementosInventario.forEach((elemento) => {
       inventarioMap.set(elemento, {
         nombre: elemento,
         detalles: {
           Operativo: 0,
           Dañado: 0,
           NoOperativo: 0,
-          EnMantenimiento: 0
-        }
+          EnMantenimiento: 0,
+        },
       });
     });
     // Actualizar cantidades basadas en los equipos encontrados
-    equiposSala.forEach(equipo => {
+    equiposSala.forEach((equipo) => {
       const nombreEquipo = equipo.tipoEquipo.nombre;
       for (const elemento of elementosInventario) {
         if (nombreEquipo.toLowerCase().includes(elemento.toLowerCase())) {
           const item = inventarioMap.get(elemento);
           if (item) {
-            
             if (item.detalles[equipo.estado] !== undefined) {
               item.detalles[equipo.estado] += equipo.cantidad;
             } else {
@@ -269,7 +276,72 @@ export class SalasService {
       sala,
       inventario,
     };
+  }
 
+  /**
+   * Actualiza el inventario de una sala específica
+   * @param idSala ID de la sala
+   * @param elementos Lista de elementos del inventario a actualizar
+   * @returns Información de la sala actualizada
+   */
+  async actualizarInventarioSala(idSala: number, elementos: ActualizarElementoInventarioDto[]) {
+
+    const sala = await this.prisma.salas.findUnique({
+      where: { id: idSala },
+      select: {
+        id: true,
+        nombreSala: true,
+      },
+    });
+
+    if (!sala) {
+      throw new NotFoundException(`Sala con ID ${idSala} no encontrada`);
+    }
+
+    const tiposEquipo = await this.prisma.tiposEquipo.findMany();
+    
+    for (const elemento of elementos) {
+      const tipoEquipo = tiposEquipo.find(
+        (tipo) => tipo.nombre.toLowerCase() === elemento.nombre.toLowerCase()
+      );
+      
+      if (!tipoEquipo) {
+        throw new NotFoundException(`Tipo de equipo '${elemento.nombre}' no encontrado`);
+      }
+
+      const equipoExistente = await this.prisma.equiposSala.findFirst({
+        where: {
+          idSala,
+          idTipoEquipo: tipoEquipo.id,
+        },
+      });
+
+      if (equipoExistente) {
+        // Actualizar el equipo existente
+        await this.prisma.equiposSala.update({
+          where: { id: equipoExistente.id },
+          data: {
+            cantidad: elemento.cantidad,
+            estado: elemento.estado,
+          },
+        });
+      } else {
+        // Crear un nuevo registro de equipo para la sala
+        await this.prisma.equiposSala.create({
+          data: {
+            idSala,
+            idTipoEquipo: tipoEquipo.id,
+            cantidad: elemento.cantidad,
+            estado: elemento.estado,
+          },
+        });
+      }
+    }
+
+    return {
+      id: sala.id,
+      nombreSala: sala.nombreSala,
+    };
   }
 
   private generarSugerenciasHorario(
