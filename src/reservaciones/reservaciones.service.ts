@@ -1,7 +1,11 @@
-
 // src/reservaciones/reservaciones.service.ts
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { CreateReservacioneDto } from './dto/create-reservacione.dto';
 
 @Injectable()
@@ -24,7 +28,9 @@ export class ReservacionesService {
     } = createDto;
 
     try {
-      console.log('   ↪️ insertando en la BD remota, preparación de fechas/hora...');
+      console.log(
+        '   ↪️ insertando en la BD remota, preparación de fechas/hora...',
+      );
       const horaInicioDate = new Date(`1970-01-01T${horaInicio}:00`);
       const horaFinDate = new Date(`1970-01-01T${horaFin}:00`);
 
@@ -34,9 +40,9 @@ export class ReservacionesService {
           idUsuario: idUsuario,
           idSala: idSala,
           nombreEvento: nombreEvento,
-          tipoEvento: tipoEvento,                   // Prisma acepta este string como enum
-          fechaEvento: new Date(fechaEvento),       // convierte ISO string a Date
-          horaInicio: horaInicioDate,               // guarda solo hora (Time)
+          tipoEvento: tipoEvento as any, // Cast string to enum type (TipoEvento)
+          fechaEvento: new Date(fechaEvento), // convierte ISO string a Date
+          horaInicio: horaInicioDate, // guarda solo hora (Time)
           horaFin: horaFinDate,
           numeroAsistentesEstimado: asistentes,
           observaciones: observaciones ?? null,
@@ -47,10 +53,13 @@ export class ReservacionesService {
           // ---------------------------------------------
         },
       });
-          console.log('   ✅ Insert exitoso en BD remota:', nueva);
+      console.log('   ✅ Insert exitoso en BD remota:', nueva);
       return nueva;
     } catch (e) {
-       console.error('   ❌ Error al crear reservación en BD remota:', e.message);
+      console.error(
+        '   ❌ Error al crear reservación en BD remota:',
+        e.message,
+      );
       throw new BadRequestException(
         'No se pudo crear la reservación: ' + e.message,
       );
@@ -61,24 +70,63 @@ export class ReservacionesService {
     return this.prisma.reservaciones.findMany();
   }
 
+  /**
+   *
+   * @param idUsuario
+   * @description Obtiene el historial de reservaciones anteriores de un usuario.
+   * @returns Arreglo de reservaciones anteriores del usuario especificado.
+   */
   async reservacionesAnteriores(idUsuario: number) {
-    const historial = await this.prisma.reservaciones.findMany({
+    //Obtiene las reservaciones de un usuario en específico
+    const reservacionesUsuario = await this.prisma.reservaciones.findMany({
+      select: {
+        id: true,
+        numeroReservacion: true,
+        nombreEvento: true,
+        idSala: true,
+        fechaEvento: true,
+        estadoSolicitud: true,
+      },
       where: {
         idUsuario: idUsuario,
       },
     });
 
-    if (historial.length === 0) {
-      return {
-        message: 'Lo sentimos, no tienes reservaciones anteriores',
-        data: [],
-      };
+    // Obtiene los nombres de las salas
+    const salas = await this.prisma.salas.findMany({
+      select: {
+        id: true,
+        nombreSala: true,
+      },
+    });
+
+    // Verifica si el usuario tiene o no reservaciones
+    if (reservacionesUsuario.length === 0) {
+      throw new HttpException(
+        'No se encontraron reservaciones para el usuario especificado',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
+    // Mapea los nombres de las salas a las reservaciones del usuario
+    const historial = reservacionesUsuario.map((reservacion) => {
+      const sala = salas.find((s) => s.id === reservacion.idSala);
+      return {
+        id: reservacion.id,
+        numeroReservacion: reservacion.numeroReservacion,
+        nombreEvento: reservacion.nombreEvento,
+        nombreSala: sala ? sala.nombreSala : 'Sala no encontrada',
+        fechaEvento: reservacion.fechaEvento,
+        estadoSolicitud: reservacion.estadoSolicitud,
+      };
+    });
+
+    // Devuelve el historial de reservaciones completo
     return historial.map((reservacion) => ({
+      idReservacion: reservacion.id,
       numeroSolicitud: reservacion.numeroReservacion,
       nombreEvento: reservacion.nombreEvento,
-      salaEvento: reservacion.idSala,
+      salaEvento: reservacion.nombreSala,
       fechaEvento: reservacion.fechaEvento,
       estadoActual: reservacion.estadoSolicitud,
     }));

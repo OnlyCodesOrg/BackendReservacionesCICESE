@@ -115,6 +115,16 @@ export class SalasController {
     };
   }
 
+  async consultarDisponibilidadSala(@Body() fechaActual: Date) {
+    const disponibilidad =
+      await this.salasService.consultarDisponibilidadSala(fechaActual);
+    return {
+      success: true,
+      message: 'Disponibilidad de sala consultada exitosamente',
+      data: disponibilidad,
+    };
+  }
+
   /**
    * Obtiene el historial de uso de una sala específica
    * @param idSala ID de la sala
