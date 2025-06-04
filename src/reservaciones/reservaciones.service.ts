@@ -44,7 +44,8 @@ export class ReservacionesService {
       });
       const sala = await this.prisma.salas.findUnique({
         where: { id: idSala },
-      });      if (usuario) {
+      });
+      if (usuario) {
         await this.enviarConfirmacionEmail(usuario, createDto, sala);
       }
 
@@ -90,15 +91,18 @@ export class ReservacionesService {
     departamento: any | null = null,
   ) {
     try {
-      const templatePath = path.join(__dirname, '..', 'template', 'correo_cicese_formato.hbs');
-      console.log('📧 Intentando leer template desde:', templatePath);
-      
-      const templateHtml = fs.readFileSync(
-        templatePath,
-        'utf8',
+      const templatePath = path.join(
+        __dirname,
+        '..',
+        'template',
+        'correo_cicese_formato.hbs',
       );
+      console.log('📧 Intentando leer template desde:', templatePath);
 
-      const template = Handlebars.compile(templateHtml);      const htmlContent = template({
+      const templateHtml = fs.readFileSync(templatePath, 'utf8');
+
+      const template = Handlebars.compile(templateHtml);
+      const htmlContent = template({
         name: usuario.nombre,
         nombreEvento: reservacion.nombreEvento,
         tipo: reservacion.tipoEvento,
@@ -119,8 +123,11 @@ export class ReservacionesService {
         subject: 'Confirmación de Reservación',
         html: htmlContent,
       });
-      
-      console.log('✅ Email de confirmación enviado exitosamente a:', usuario.email);
+
+      console.log(
+        '✅ Email de confirmación enviado exitosamente a:',
+        usuario.email,
+      );
     } catch (error) {
       console.error('❌ Error al enviar email de confirmación:', error.message);
       // No lanzamos la excepción para que no afecte la creación de la reservación

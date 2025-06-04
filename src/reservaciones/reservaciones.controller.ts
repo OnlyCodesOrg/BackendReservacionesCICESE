@@ -10,7 +10,8 @@ export class ReservacionesController {
   constructor(private readonly reservacionesService: ReservacionesService) {}
   @ApiOperation({
     summary: 'Crear una nueva reservación',
-    description: 'Crea una nueva reservación de sala con los datos proporcionados.',
+    description:
+      'Crea una nueva reservación de sala con los datos proporcionados.',
   })
   @ApiBody({
     description: 'Datos necesarios para crear una nueva reservación',
@@ -19,19 +20,19 @@ export class ReservacionesController {
       example1: {
         summary: 'Ejemplo de reservación',
         value: {
-          numeroReservacion: "RES-20250603-002",
+          numeroReservacion: 'RES-20250603-002',
           idUsuario: 1,
-          nombreEvento: "Reunión de Proyecto X",
+          nombreEvento: 'Reunión de Proyecto X',
           idSala: 1,
-          tipoEvento: "Reunion",
-          fechaEvento: "2025-06-10",
-          horaInicio: "09:00",
-          horaFin: "11:00",
+          tipoEvento: 'Reunion',
+          fechaEvento: '2025-06-10',
+          horaInicio: '09:00',
+          horaFin: '11:00',
           asistentes: 5,
-          observaciones: "Se requiere proyector y pizarrón"
-        }
-      }
-    }
+          observaciones: 'Se requiere proyector y pizarrón',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 201,
@@ -66,7 +67,8 @@ export class ReservacionesController {
         },
         tipoEvento: {
           type: 'string',
-          description: 'Tipo de evento (Reunion, Videoconferencia, Presentacion, etc.)',
+          description:
+            'Tipo de evento (Reunion, Videoconferencia, Presentacion, etc.)',
         },
         fechaEvento: {
           type: 'string',
@@ -120,7 +122,8 @@ export class ReservacionesController {
           type: 'string',
           nullable: true,
           format: 'date-time',
-          description: 'Fecha de última modificación (null si no se ha modificado)',
+          description:
+            'Fecha de última modificación (null si no se ha modificado)',
         },
         idUsuarioUltimaModificacion: {
           type: 'number',
@@ -135,7 +138,8 @@ export class ReservacionesController {
         fallasRegistradas: {
           type: 'string',
           nullable: true,
-          description: 'Fallas registradas durante el evento (null si no hay fallas)',
+          description:
+            'Fallas registradas durante el evento (null si no hay fallas)',
         },
       },
     },
@@ -211,5 +215,4 @@ export class ReservacionesController {
     const id = parseInt(idUsuario, 10);
     return await this.reservacionesService.reservacionesAnteriores(id);
   }
-
 }
