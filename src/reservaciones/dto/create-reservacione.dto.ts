@@ -22,16 +22,16 @@ const TIPOS_EVENTO = [
 
 export class CreateReservacioneDto {
   @IsString()
-  numeroReservacion: string;  
+  numeroReservacion: string;
   // Puede ser un UUID o cualquier formato que tú decidas,
   // por ejemplo "RES-20250601-0001". Ajusta la validación si quieres requisitos adicionales.
 
   @IsInt()
-  idUsuario: number;  
+  idUsuario: number;
   // El ID del usuario que hace la reservación. Lo tomas del JWT en el front.
 
   @IsString()
-  nombreEvento: string;  
+  nombreEvento: string;
   // El título/nombre que ponga el usuario para su evento.
 
   @IsInt()

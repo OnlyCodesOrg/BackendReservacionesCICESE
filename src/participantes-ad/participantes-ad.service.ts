@@ -52,7 +52,6 @@ export class ParticipantesAdService {
       );
     }
 
-    
     return this.prisma.partcipantesAdicionales.create({
       data: {
         idReservacion: participante.idReservacion,
