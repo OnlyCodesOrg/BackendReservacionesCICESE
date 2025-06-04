@@ -1,5 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import {
   SalaDisponible,
   ConflictoHorario,
@@ -11,6 +14,7 @@ import {
 } from '../types';
 import { ReservacionesService } from 'src/reservaciones/reservaciones.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
 
 @Injectable()
 export class SalasService {
@@ -57,7 +61,7 @@ export class SalasService {
       );
 
       // Filtrar salas seleccionadas
-      let salasFiltradas = new Array<any>();
+      const salasFiltradas = new Array<any>();
       salasSeleccionadas.forEach((currentSelected) => {
         salasDisponibles.forEach((currentDisp) => {
           if (currentSelected === currentDisp.id) {
@@ -284,8 +288,10 @@ export class SalasService {
    * @param elementos Lista de elementos del inventario a actualizar
    * @returns Información de la sala actualizada
    */
-  async actualizarInventarioSala(idSala: number, elementos: ActualizarElementoInventarioDto[]) {
-
+  async actualizarInventarioSala(
+    idSala: number,
+    elementos: ActualizarElementoInventarioDto[],
+  ) {
     const sala = await this.prisma.salas.findUnique({
       where: { id: idSala },
       select: {
@@ -310,21 +316,26 @@ export class SalasService {
       'Borrador',
     ];
     const tiposEquipo = await this.prisma.tiposEquipo.findMany();
-    console.log('Tipos de equipo disponibles:', tiposEquipo.map(t => t.nombre));
-    
+    console.log(
+      'Tipos de equipo disponibles:',
+      tiposEquipo.map((t) => t.nombre),
+    );
+
     // Función para normalizar texto (eliminar acentos y convertir a minúsculas)
     const normalizar = (texto: string) => {
-      return texto.toLowerCase()
+      return texto
+        .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '');
     };
 
     // Asegurarse de que todos los elementos del inventario existen como tipos de equipo
     for (const elementoNombre of elementosInventario) {
-      const tipoExistente = tiposEquipo.find(tipo => 
-        normalizar(tipo.nombre) === normalizar(elementoNombre) ||
-        normalizar(tipo.nombre).includes(normalizar(elementoNombre)) ||
-        normalizar(elementoNombre).includes(normalizar(tipo.nombre))
+      const tipoExistente = tiposEquipo.find(
+        (tipo) =>
+          normalizar(tipo.nombre) === normalizar(elementoNombre) ||
+          normalizar(tipo.nombre).includes(normalizar(elementoNombre)) ||
+          normalizar(elementoNombre).includes(normalizar(tipo.nombre)),
       );
 
       if (!tipoExistente) {
@@ -340,26 +351,31 @@ export class SalasService {
 
     // Recargar los tipos de equipo después de posibles creaciones
     const tiposEquipoActualizados = await this.prisma.tiposEquipo.findMany();
-    
+
     for (const elemento of elementos) {
       // Verificar que el elemento está en la lista de elementos permitidos
-      const elementoPermitido = elementosInventario.find(e => 
-        normalizar(e) === normalizar(elemento.nombre)
+      const elementoPermitido = elementosInventario.find(
+        (e) => normalizar(e) === normalizar(elemento.nombre),
       );
-      
+
       if (!elementoPermitido) {
-        throw new BadRequestException(`El elemento '${elemento.nombre}' no está en la lista de elementos permitidos`);
+        throw new BadRequestException(
+          `El elemento '${elemento.nombre}' no está en la lista de elementos permitidos`,
+        );
       }
 
       // Buscar el tipo de equipo correspondiente
-      const tipoEquipo = tiposEquipoActualizados.find(tipo => 
-        normalizar(tipo.nombre) === normalizar(elemento.nombre) ||
-        normalizar(tipo.nombre).includes(normalizar(elemento.nombre)) ||
-        normalizar(elemento.nombre).includes(normalizar(tipo.nombre))
+      const tipoEquipo = tiposEquipoActualizados.find(
+        (tipo) =>
+          normalizar(tipo.nombre) === normalizar(elemento.nombre) ||
+          normalizar(tipo.nombre).includes(normalizar(elemento.nombre)) ||
+          normalizar(elemento.nombre).includes(normalizar(tipo.nombre)),
       );
-      
+
       if (!tipoEquipo) {
-        throw new NotFoundException(`Tipo de equipo '${elemento.nombre}' no encontrado`);
+        throw new NotFoundException(
+          `Tipo de equipo '${elemento.nombre}' no encontrado`,
+        );
       }
 
       const equipoExistente = await this.prisma.equiposSala.findFirst({
