@@ -212,8 +212,4 @@ export class ReservacionesController {
     return await this.reservacionesService.reservacionesAnteriores(id);
   }
 
-  @Get('probarCorreo')
-  async probarCorreo() {
-    return await this.reservacionesService.enviarCorreoPrueba();
-  }
 }
