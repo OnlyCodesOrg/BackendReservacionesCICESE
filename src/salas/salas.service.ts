@@ -6,6 +6,7 @@ import {
   SalaConHistorial,
   HistorialUsoSala,
   DetalleEventoSala,
+  disponibilidadDeSala,
 } from '../types';
 import { ReservacionesService } from 'src/reservaciones/reservaciones.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -141,6 +142,57 @@ export class SalasService {
     fin2: Date,
   ): boolean {
     return inicio1 < fin2 && fin1 > inicio2;
+  }
+
+  async consultarDisponibilidadSala(diaActual: Date): Promise<any[]> {
+    const horaInicio = 8 * 60; //Convertir a minutos
+    const horaFin = 18 * 60;
+
+    // Se obtienen todas las salas
+    const salas = await this.prisma.salas.findMany();
+
+    // Se obtienen todas las reservaciones del dia
+    const reservacionesDia = await this.prisma.reservaciones.findMany({
+      where: {
+        fechaEvento: diaActual,
+      },
+    });
+
+    const salasDisponibles: disponibilidadDeSala[] = [];
+
+    for (const sala of salas) {
+      const salasReservadas = reservacionesDia
+        .filter((r) => r.idSala === sala.id)
+        .map((r) => ({
+          inicio: r.horaInicio.getHours() * 60 + r.horaInicio.getMinutes(),
+          fin: r.horaFin.getHours() * 60 + r.horaFin.getMinutes(),
+        }))
+        .sort((a, b) => a.inicio - b.inicio);
+
+      let disponible = false;
+      let anteriorFin = horaInicio;
+
+      for (const reserva of salasReservadas) {
+        if (reserva.inicio - anteriorFin >= 60) {
+          disponible = true;
+          break;
+        }
+        anteriorFin = Math.max(anteriorFin, reserva.fin);
+      }
+
+      if (!disponible && horaFin - anteriorFin >= 60) {
+        disponible = true;
+      }
+
+      salasDisponibles.push({
+        id: sala.id,
+        nombreSala: sala.nombreSala,
+        ubicacion: sala.ubicacion,
+        estaDisponible: disponible,
+      });
+    }
+
+    return salasDisponibles;
   }
 
   /**
