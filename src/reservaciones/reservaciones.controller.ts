@@ -72,4 +72,9 @@ export class ReservacionesController {
     const id = parseInt(idUsuario, 10);
     return await this.reservacionesService.reservacionesAnteriores(id);
   }
+
+  @Get('probarCorreo')
+  async probarCorreo() {
+    return await this.reservacionesService.enviarCorreoPrueba();
+  }
 }

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Confirmación de Reserva</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      color: #333;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #e5e5e5;
+    }
+    h1 {
+      color: #003366;
+      font-size: 22px;
+    }
+    h2 {
+      font-size: 18px;
+      margin-top: 24px;
+      color: #222;
+    }
+    p, li {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .section {
+      margin-bottom: 20px;
+    }
+    .zoom-link {
+      display: inline-block;
+      padding: 10px 15px;
+      background: #003366;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+    .footer {
+      font-size: 12px;
+      color: #666;
+      margin-top: 40px;
+      border-top: 1px solid #ddd;
+      padding-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>✅ Tu reservación ha sido confirmada</h1>
+
+    <div class="section">
+      <p>Hola <strong>{{name}}</strong>,</p>
+      <p>Tu solicitud ha sido procesada exitosamente. A continuación los detalles de tu evento:</p>
+    </div>
+
+    <div class="section">
+      <h2>🗓 Detalles del Evento</h2>
+      <ul>
+        <li><strong>Nombre del evento:</strong> {{nombreEvento}}</li>
+        <li><strong>Tipo:</strong> {{tipo}}</li>
+        <li><strong>Fecha:</strong> {{fecha}}</li>
+        <li><strong>Horario:</strong> {horaInicio} – {{horaFin}}</li>
+        <li><strong>Participantes:</strong> {{participantes}}</li>
+        <li><strong>Solicitante:</strong> {{solicitante}} – {{departamento}}</li>
+        <li><strong>Correo:</strong> {{emailSolicitante}}</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>📍 Sala Asignada</h2>
+      <p><strong>{{nombre sala}}</strong><br/>
+      {{ubicacionSala}}</p>
+    </div>
+
+    <div class="section">
+      <h2>🧰 Recursos Solicitados</h2>
+      <ul>
+        <li><strong>Equipo necesario:</strong> Cámara x3</li>
+        <li><strong>Servicios necesarios:</strong> Wifi x3</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>🔗 Enlace de Zoom</h2>
+      <p>Si aplica: <a href="https://zoom.us/tu-enlace-aqui" class="zoom-link">Unirse a la sesión</a></p>
+      <!-- Si no aplica, este bloque puede omitirse dinámicamente -->
+    </div>
+
+    <div class="footer">
+      <p>Gracias por utilizar el sistema de reservas. Si necesitas modificar esta reservación, puedes hacerlo directamente desde el sistema.</p>
+      <p>Atentamente,<br/>
+      <strong>Equipo de Telemática</strong><br/>
+      <a href="mailto:telematica@cicese.mx">telematica@cicese.mx</a></p>
+    </div>
+  </div>
+</body>
+</html>
