@@ -14,7 +14,9 @@ import * as path from 'path';
 import { Resend } from 'resend';
 @Injectable()
 export class ReservacionesService {
-  private resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+  private resend = process.env.RESEND_API_KEY
+    ? new Resend(process.env.RESEND_API_KEY)
+    : null;
   constructor(private prisma: PrismaService) {}
 
   async crearReservacion(createDto: CreateReservacioneDto) {
@@ -95,8 +97,13 @@ export class ReservacionesService {
         console.log('⚠️ Resend no está configurado. Saltando envío de email.');
         return;
       }
-      
-      const templatePath = path.join(__dirname, '..', 'template', 'correo_cicese_formato.hbs');
+
+      const templatePath = path.join(
+        __dirname,
+        '..',
+        'template',
+        'correo_cicese_formato.hbs',
+      );
       console.log('📧 Intentando leer template desde:', templatePath);
 
       const templateHtml = fs.readFileSync(templatePath, 'utf8');
@@ -137,10 +144,11 @@ export class ReservacionesService {
   async enviarCorreoPrueba() {
     if (!this.resend) {
       return {
-        message: 'Resend no está configurado. No se pudo enviar el correo de prueba.',
+        message:
+          'Resend no está configurado. No se pudo enviar el correo de prueba.',
       };
     }
-    
+
     this.resend.emails.send({
       from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
       to: 'gonzalez372576@uabc.edu.mx',
