@@ -298,11 +298,64 @@ export class SalasService {
       throw new NotFoundException(`Sala con ID ${idSala} no encontrada`);
     }
 
+    const elementosInventario = [
+      'Cámara',
+      'Micrófono',
+      'Pantalla',
+      'Proyector',
+      'Silla',
+      'Mesa',
+      'Pizarrón',
+      'Plumón',
+      'Borrador',
+    ];
     const tiposEquipo = await this.prisma.tiposEquipo.findMany();
+    console.log('Tipos de equipo disponibles:', tiposEquipo.map(t => t.nombre));
+    
+    // Función para normalizar texto (eliminar acentos y convertir a minúsculas)
+    const normalizar = (texto: string) => {
+      return texto.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    };
+
+    // Asegurarse de que todos los elementos del inventario existen como tipos de equipo
+    for (const elementoNombre of elementosInventario) {
+      const tipoExistente = tiposEquipo.find(tipo => 
+        normalizar(tipo.nombre) === normalizar(elementoNombre) ||
+        normalizar(tipo.nombre).includes(normalizar(elementoNombre)) ||
+        normalizar(elementoNombre).includes(normalizar(tipo.nombre))
+      );
+
+      if (!tipoExistente) {
+        // Crear el tipo de equipo si no existe
+        await this.prisma.tiposEquipo.create({
+          data: {
+            nombre: elementoNombre,
+            descripcion: `Tipo de equipo para ${elementoNombre}`,
+          },
+        });
+      }
+    }
+
+    // Recargar los tipos de equipo después de posibles creaciones
+    const tiposEquipoActualizados = await this.prisma.tiposEquipo.findMany();
     
     for (const elemento of elementos) {
-      const tipoEquipo = tiposEquipo.find(
-        (tipo) => tipo.nombre.toLowerCase() === elemento.nombre.toLowerCase()
+      // Verificar que el elemento está en la lista de elementos permitidos
+      const elementoPermitido = elementosInventario.find(e => 
+        normalizar(e) === normalizar(elemento.nombre)
+      );
+      
+      if (!elementoPermitido) {
+        throw new BadRequestException(`El elemento '${elemento.nombre}' no está en la lista de elementos permitidos`);
+      }
+
+      // Buscar el tipo de equipo correspondiente
+      const tipoEquipo = tiposEquipoActualizados.find(tipo => 
+        normalizar(tipo.nombre) === normalizar(elemento.nombre) ||
+        normalizar(tipo.nombre).includes(normalizar(elemento.nombre)) ||
+        normalizar(elemento.nombre).includes(normalizar(tipo.nombre))
       );
       
       if (!tipoEquipo) {
