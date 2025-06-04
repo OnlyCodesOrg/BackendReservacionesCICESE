@@ -24,7 +24,8 @@
     "docker:up:dev": "docker-compose --profile development up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
-    "docker:rebuild": "docker-compose down && docker-compose build --no-cache && docker-compose up -d"
+    "docker:rebuild": "docker-compose down && docker-compose build --no-cache && docker-compose up -d",
+    "prisma:seed": "ts-node src/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
