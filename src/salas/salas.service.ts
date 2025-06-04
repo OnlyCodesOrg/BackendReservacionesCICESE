@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   SalaDisponible,
   ConflictoHorario,
@@ -198,6 +198,80 @@ export class SalasService {
   /**
    * Genera sugerencias de horarios disponibles
    */
+  /**
+   * Obtiene el inventario de una sala específica
+   * @param idSala ID de la sala
+   * @returns Información de la sala y su inventario
+   */
+  async obtenerInventarioSala(idSala: number) {
+    // Verificar que la sala existe
+    const sala = await this.prisma.salas.findUnique({
+      where: { id: idSala },
+      select: {
+        id: true,
+        nombreSala: true,
+        ubicacion: true,
+      },
+    });
+
+    if (!sala) {
+      throw new NotFoundException(`Sala con ID ${idSala} no encontrada`);
+    }
+
+    // Obtener equipos asociados a la sala desde la tabla EquiposSala
+    const equiposSala = await this.prisma.equiposSala.findMany({
+      where: { idSala },
+      include: {
+        tipoEquipo: true,
+      },
+    });
+
+    const inventarioMap = new Map<string, any>();
+
+    const elementosInventario = [
+      'Cámara', 'Micrófono', 'Pantalla', 'Proyector', 
+      'Silla', 'Mesa', 'Pizarrón', 'Plumón', 'Borrador'
+    ];
+
+    elementosInventario.forEach(elemento => {
+      inventarioMap.set(elemento, {
+        nombre: elemento,
+        detalles: {
+          Operativo: 0,
+          Dañado: 0,
+          NoOperativo: 0,
+          EnMantenimiento: 0
+        }
+      });
+    });
+    // Actualizar cantidades basadas en los equipos encontrados
+    equiposSala.forEach(equipo => {
+      const nombreEquipo = equipo.tipoEquipo.nombre;
+      for (const elemento of elementosInventario) {
+        if (nombreEquipo.toLowerCase().includes(elemento.toLowerCase())) {
+          const item = inventarioMap.get(elemento);
+          if (item) {
+            
+            if (item.detalles[equipo.estado] !== undefined) {
+              item.detalles[equipo.estado] += equipo.cantidad;
+            } else {
+              item.detalles[equipo.estado] = equipo.cantidad;
+            }
+          }
+          break;
+        }
+      }
+    });
+
+    const inventario = Array.from(inventarioMap.values());
+
+    return {
+      sala,
+      inventario,
+    };
+
+  }
+
   private generarSugerenciasHorario(
     idSala: number,
     fechaEvento: Date,
