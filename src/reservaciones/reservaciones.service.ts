@@ -127,19 +127,6 @@ export class ReservacionesService {
     }
   }
 
-  async enviarCorreoPrueba() {
-    this.resend.emails.send({
-      from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
-      to: 'gonzalez372576@uabc.edu.mx',
-      subject: 'Prueba de envío de correo',
-      html: '<h1>¡Hola!</h1><p>Este es un correo de prueba.</p>',
-    });
-
-    return {
-      message: 'Correo de prueba enviado correctamente',
-    };
-  }
-
   /**
    *
    * @param idUsuario
