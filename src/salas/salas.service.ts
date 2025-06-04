@@ -10,19 +10,20 @@ import {
 } from '../types';
 import { ReservacionesService } from 'src/reservaciones/reservaciones.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { actualizarEquipo } from './dto/actualizar-equipo.dto';
 
 @Injectable()
 export class SalasService {
   constructor(
     private prisma: PrismaService,
     private reservacionesService: ReservacionesService,
-  ) {}
+  ) { }
 
   /**
    * Obtiene las salas disponibles dentro de un rango de fechas
    * @param fechaInicio
    * @param fechaFin
-   * @param salasSeleccionadas
+   * @param salasSeleccionadas [id,id,id]
    * @returns La lista de salas disponibles dentro del rango de tiempo
    */
   ObtenerSalas(
@@ -70,6 +71,48 @@ export class SalasService {
         (current) => current.inicio >= fechaInicio && current.fin <= fechaFin,
       );
       return salasDisponibles;
+    }
+  }
+
+
+  /**
+   * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data, 
+   * donde data puede ser null en caso de no encontrar algo
+   * @param idSala id de la sala
+   * @returns {message:"ok"|| error encontrad,data:[equipos] || null }
+   */
+  async ObtenerEquipoDeSala(idSala: number) {
+    try {
+      const equipo = await this.prisma.equiposSala.findMany({ where: { idSala: idSala } });
+      if (!equipo) throw new Error("Equipo no encontrado. ", equipo);
+      return { message: 'ok', data: equipo };
+    } catch (e) {
+      console.error(e.message);
+      return { message: e.message, data: null };
+    }
+  }
+
+
+  /**
+   * Actualiza los atributos del equipo
+   * @param nuevoEquipo El equipo con sus datos a actualizar
+   * @returns {message:ok || error, data:resultado||null}
+   */
+  async ActualizarEquipoDeSala(nuevoEquipo: actualizarEquipo) {
+    try {
+      const equipo = await this.prisma.equiposSala.findFirst({ where: { id: nuevoEquipo.id } });
+      if (!equipo) throw new Error("Equipo no encontrado.");
+
+      const { id: _, ...equipoSinId } = nuevoEquipo
+
+      const res = await this.prisma.equiposSala.update({
+        where: { id: equipo.id }, data: equipoSinId
+      })
+      if (!res) throw new Error("Error al actualizar el equipo. ", res);
+      return { message: "ok", data: res };
+    } catch (e) {
+      console.error(e.message);
+      return { message: e.message, data: null };
     }
   }
 
