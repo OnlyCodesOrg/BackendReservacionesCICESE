@@ -1,5 +1,5 @@
 // src/reservaciones/reservaciones.service.ts
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   Injectable,
   BadRequestException,
@@ -44,10 +44,8 @@ export class ReservacionesService {
       });
       const sala = await this.prisma.salas.findUnique({
         where: { id: idSala },
-      });
-
-      if (usuario) {
-        this.enviarConfirmacionEmail(usuario, createDto, sala);
+      });      if (usuario) {
+        await this.enviarConfirmacionEmail(usuario, createDto, sala);
       }
 
       const nueva = await this.prisma.reservaciones.create({
@@ -85,45 +83,53 @@ export class ReservacionesService {
   async obtenerReservaciones() {
     return this.prisma.reservaciones.findMany();
   }
-  enviarConfirmacionEmail(
+  async enviarConfirmacionEmail(
     usuario: any,
     reservacion: CreateReservacioneDto,
     sala: any,
     departamento: any | null = null,
   ) {
-    const templateHtml = fs.readFileSync(
-      path.join(__dirname, '..', 'template', 'correo_cicese_formato.hbs'),
-      'utf8',
-    );
+    try {
+      const templatePath = path.join(__dirname, '..', 'template', 'correo_cicese_formato.hbs');
+      console.log('📧 Intentando leer template desde:', templatePath);
+      
+      const templateHtml = fs.readFileSync(
+        templatePath,
+        'utf8',
+      );
 
-    const template = Handlebars.compile(templateHtml);
+      const template = Handlebars.compile(templateHtml);      const htmlContent = template({
+        name: usuario.nombre,
+        nombreEvento: reservacion.nombreEvento,
+        tipo: reservacion.tipoEvento,
+        fecha: reservacion.fechaEvento,
+        horaInicio: reservacion.horaInicio,
+        horaFin: reservacion.horaFin,
+        participantes: 0,
+        solicitante: usuario.nombre || 'Usuario',
+        departamento: 'N/A',
+        emailSolicitante: usuario.email,
+        nombreSala: sala.nombreSala || 'Sala asignada',
+        ubicacionSala: sala.ubicacion || 'Edificio principal',
+      });
 
-    const htmlContent = template({
-      name: usuario.nombre,
-      nombreEvento: reservacion.nombreEvento,
-      tipo: reservacion.tipoEvento,
-      fecha: reservacion.fechaEvento,
-      horaInicio: reservacion.horaInicio,
-      horaFin: reservacion.horaFin,
-      participantes: 0,
-      solicitante: usuario.nombre || 'Usuario',
-      departamento: 'N/A',
-      emailSolicitante: usuario.email,
-      'nombre sala': sala.nombreSala || 'Sala asignada',
-      ubicacionSala: sala.ubicacion || 'Edificio principal',
-    });
-
-    this.resend.emails.send({
-      from: 'telematica@cicese.mx',
-      to: usuario.email,
-      subject: 'Confirmación de Reservación',
-      html: htmlContent,
-    });
+      await this.resend.emails.send({
+        from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
+        to: usuario.email,
+        subject: 'Confirmación de Reservación',
+        html: htmlContent,
+      });
+      
+      console.log('✅ Email de confirmación enviado exitosamente a:', usuario.email);
+    } catch (error) {
+      console.error('❌ Error al enviar email de confirmación:', error.message);
+      // No lanzamos la excepción para que no afecte la creación de la reservación
+    }
   }
 
   async enviarCorreoPrueba() {
     this.resend.emails.send({
-      from: 'telematica@isyte.dev',
+      from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
       to: 'gonzalez372576@uabc.edu.mx',
       subject: 'Prueba de envío de correo',
       html: '<h1>¡Hola!</h1><p>Este es un correo de prueba.</p>',
