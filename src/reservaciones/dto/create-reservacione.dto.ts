@@ -41,8 +41,6 @@ export class CreateReservacioneDto {
   idSala: number;
 
   @IsInt()
-  
-
   @IsString()
   @IsIn(TIPOS_EVENTO, {
     message: `tipoEvento debe ser uno de: ${TIPOS_EVENTO.join(', ')}`,
