@@ -32,13 +32,16 @@ export class CreateReservacioneDto {
 
   @IsInt()
   idTecnicoAsignado: number;
-  
+
   @IsString()
   nombreEvento: string;
   // El título/nombre que ponga el usuario para su evento.
 
   @IsInt()
   idSala: number;
+
+  @IsInt()
+  
 
   @IsString()
   @IsIn(TIPOS_EVENTO, {

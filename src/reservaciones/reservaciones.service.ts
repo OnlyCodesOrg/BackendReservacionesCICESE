@@ -50,6 +50,7 @@ export class ReservacionesService {
       horaFin,
       asistentes,
       observaciones,
+      idTecnicoAsignado,
     } = createDto;
 
     try {
