@@ -19,6 +19,22 @@ export class ReservacionesService {
     : null;
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * 
+   * @param idReservacion 
+   * @returns el numero de asistencia real
+   */
+  async ObtenerAsistenciasSala(idReservacion: number) {
+    try {
+      const asistencias = await this.prisma.reservaciones.findUnique({ where: { id: idReservacion } });
+      if (!asistencias) throw new Error("Error con la consulta");
+      return { message: "ok", data: asistencias.numeroAsistentesReal };
+    } catch (e) {
+      console.error(e);
+      return { message: e.message, data: null };
+    }
+  }
+
   async crearReservacion(createDto: CreateReservacioneDto) {
     console.log('=== crearReservacion llamado con DTO:', createDto);
     const {
@@ -35,9 +51,7 @@ export class ReservacionesService {
     } = createDto;
 
     try {
-      console.log(
-        '   ↪️ insertando en la BD remota, preparación de fechas/hora...',
-      );
+      
       const horaInicioDate = new Date(`1970-01-01T${horaInicio}:00`);
       const horaFinDate = new Date(`1970-01-01T${horaFin}:00`);
 
@@ -70,13 +84,8 @@ export class ReservacionesService {
           // ---------------------------------------------
         },
       });
-      console.log('   ✅ Insert exitoso en BD remota:', nueva);
       return nueva;
     } catch (e) {
-      console.error(
-        '   ❌ Error al crear reservación en BD remota:',
-        e.message,
-      );
       throw new BadRequestException(
         'No se pudo crear la reservación: ' + e.message,
       );

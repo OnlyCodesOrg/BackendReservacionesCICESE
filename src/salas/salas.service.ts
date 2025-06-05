@@ -631,8 +631,6 @@ export class SalasService {
       skip: offset,
     });
 
-    console.log('Reservaciones obtenidas:', reservaciones);
-
     return reservaciones.map((reservacion) => ({
       id: reservacion.id,
       numeroReservacion: reservacion.numeroReservacion,
