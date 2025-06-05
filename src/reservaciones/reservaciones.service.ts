@@ -43,7 +43,6 @@ export class ReservacionesService {
       numeroReservacion,
       idUsuario,
       idSala,
-      idTecnicoAsignado,
       nombreEvento,
       tipoEvento,
       fechaEvento,
@@ -77,7 +76,6 @@ export class ReservacionesService {
           numeroReservacion: numeroReservacion,
           idUsuario: idUsuario,
           idSala: idSala,
-          idTecnicoAsignado: idTecnicoAsignado ?? null, // Puede ser null si no se asigna técnico
           nombreEvento: nombreEvento,
           tipoEvento: tipoEvento as TipoEvento, // Cast string to enum type (TipoEvento)
           fechaEvento: new Date(fechaEvento), // convierte ISO string a Date
