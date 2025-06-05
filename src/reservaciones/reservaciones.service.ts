@@ -76,7 +76,7 @@ export class ReservacionesService {
           horaInicio: horaInicioDate, // guarda solo hora (Time)
           horaFin: horaFinDate,
           numeroAsistentesEstimado: asistentes,
-          numeroAsistentesReal: 0, // Inicialmente 0, se actualizará después
+          numeroAsistentesReal: asistentes, // CAMBIAR: SOLO ES TEMPORAL PARA PROBAR
           observaciones: observaciones ?? null,
           // ---------------------------------------------
           // El resto de campos (idTecnicoAsignado, numeroAsistentesReal,
