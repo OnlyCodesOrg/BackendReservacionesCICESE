@@ -41,7 +41,7 @@ export class ReservacionesService {
           idUsuario: idUsuario,
           idSala: idSala,
           nombreEvento: nombreEvento,
-          tipoEvento: tipoEvento as TipoEvento , // Cast string to enum type (TipoEvento)
+          tipoEvento: tipoEvento as TipoEvento, // Cast string to enum type (TipoEvento)
           fechaEvento: new Date(fechaEvento), // convierte ISO string a Date
           horaInicio: horaInicioDate, // guarda solo hora (Time)
           horaFin: horaFinDate,

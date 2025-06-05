@@ -29,7 +29,7 @@ import { listarSalas } from './dto/listar-equipo.dto';
 @ApiTags('salas')
 @Controller('salas')
 export class SalasController {
-  constructor(private readonly salasService: SalasService) { }
+  constructor(private readonly salasService: SalasService) {}
 
   /**
    * Obtiene la lista de salas disponibles dentro del rango de fechas
@@ -37,18 +37,18 @@ export class SalasController {
    */
   @Post('listar')
   @ApiOperation({
-    description: "Obtiene la lista de salas con un rango de fechas definidas"
+    description: 'Obtiene la lista de salas con un rango de fechas definidas',
   })
   @ApiBody({
-    type: listarSalas
+    type: listarSalas,
   })
   @ApiResponse({
-    status:200,
-    type:respuestaGenerica
+    status: 200,
+    type: respuestaGenerica,
   })
   @ApiResponse({
-    status:400,
-    type:respuestaGenerica
+    status: 400,
+    type: respuestaGenerica,
   })
   async ListarSalas(@Body() data: listarSalas) {
     const res = this.salasService.ObtenerSalas(
@@ -60,21 +60,21 @@ export class SalasController {
   }
 
   /**
-   * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data, 
+   * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data,
    * donde data puede ser null en caso de no encontrar algo
    * @param idSala id de la sala, enviado desde la URL
    * @returns {message:"ok"|| error encontrad,data:[equipos] || null }
    */
   @ApiOperation({
-    description: "Obtiene la lista de equipos que tenga dicha sala"
+    description: 'Obtiene la lista de equipos que tenga dicha sala',
   })
   @ApiResponse({
     status: 200,
-    type: respuestaGenerica
+    type: respuestaGenerica,
   })
   @ApiResponse({
     status: 400,
-    type: respuestaGenerica
+    type: respuestaGenerica,
   })
   @Get('equipo/:idSala')
   async ObtenerEquipoDeSala(@Param('idSala', ParseIntPipe) idSala: number) {
@@ -88,21 +88,21 @@ export class SalasController {
    */
   @Post('equipo/actualizar')
   @ApiOperation({
-    summary: "Actualizar equipo",
+    summary: 'Actualizar equipo',
   })
   @ApiBody({
-    description: "Necesita el id del equipo y los atributos a actualizar",
-    type: actualizarEquipo
+    description: 'Necesita el id del equipo y los atributos a actualizar',
+    type: actualizarEquipo,
   })
   @ApiResponse({
     status: 200,
-    description: "Responde con un mensaje y la data",
-    type: respuestaGenerica
+    description: 'Responde con un mensaje y la data',
+    type: respuestaGenerica,
   })
   @ApiResponse({
     status: 400,
-    description: "Responde con un mensaje y la data",
-    type: respuestaGenerica
+    description: 'Responde con un mensaje y la data',
+    type: respuestaGenerica,
   })
   async ActualizarEquipo(@Body() data: any) {
     return await this.salasService.ActualizarEquipoDeSala(data);

@@ -17,7 +17,7 @@ export class SalasService {
   constructor(
     private prisma: PrismaService,
     private reservacionesService: ReservacionesService,
-  ) { }
+  ) {}
 
   /**
    * Obtiene las salas disponibles dentro de un rango de fechas
@@ -74,24 +74,24 @@ export class SalasService {
     }
   }
 
-
   /**
-   * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data, 
+   * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data,
    * donde data puede ser null en caso de no encontrar algo
    * @param idSala id de la sala
    * @returns {message:"ok"|| error encontrad,data:[equipos] || null }
    */
   async ObtenerEquipoDeSala(idSala: number) {
     try {
-      const equipo = await this.prisma.equiposSala.findMany({ where: { idSala: idSala } });
-      if (!equipo) throw new Error("Equipo no encontrado. ", equipo);
+      const equipo = await this.prisma.equiposSala.findMany({
+        where: { idSala: idSala },
+      });
+      if (!equipo) throw new Error('Equipo no encontrado. ', equipo);
       return { message: 'ok', data: equipo };
     } catch (e) {
       console.error(e.message);
       return { message: e.message, data: null };
     }
   }
-
 
   /**
    * Actualiza los atributos del equipo
@@ -100,16 +100,19 @@ export class SalasService {
    */
   async ActualizarEquipoDeSala(nuevoEquipo: actualizarEquipo) {
     try {
-      const equipo = await this.prisma.equiposSala.findFirst({ where: { id: nuevoEquipo.id } });
-      if (!equipo) throw new Error("Equipo no encontrado.");
+      const equipo = await this.prisma.equiposSala.findFirst({
+        where: { id: nuevoEquipo.id },
+      });
+      if (!equipo) throw new Error('Equipo no encontrado.');
 
-      const { id: _, ...equipoSinId } = nuevoEquipo
+      const { id: _, ...equipoSinId } = nuevoEquipo;
 
       const res = await this.prisma.equiposSala.update({
-        where: { id: equipo.id }, data: equipoSinId
-      })
-      if (!res) throw new Error("Error al actualizar el equipo. ", res);
-      return { message: "ok", data: res };
+        where: { id: equipo.id },
+        data: equipoSinId,
+      });
+      if (!res) throw new Error('Error al actualizar el equipo. ', res);
+      return { message: 'ok', data: res };
     } catch (e) {
       console.error(e.message);
       return { message: e.message, data: null };
