@@ -11,7 +11,9 @@ import {
   HistorialUsoSala,
   DetalleEventoSala,
   disponibilidadDeSala,
+  Sala,
 } from '../types';
+
 import { ReservacionesService } from 'src/reservaciones/reservaciones.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
@@ -707,5 +709,21 @@ export class SalasService {
         }),
       ),
     };
+  }
+
+  /**
+   * Obtener la información de una sala en específico
+   * @param idSala ID de la sala
+   * @returns Información de la sala
+   */
+
+  async obtenerSalaPorId(idSala: number): Promise<Sala | null> {
+    const sala = await this.prisma.salas.findUnique({
+      where: { id: idSala },
+    });
+
+    if (!sala) return null;
+
+    return sala;
   }
 }
