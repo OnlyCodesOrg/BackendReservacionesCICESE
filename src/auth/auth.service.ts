@@ -3,6 +3,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { LoginDto } from './dto/login.dto';
 
 export type JwtPayload = {
   sub: number;
@@ -21,49 +22,49 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, pass: string) {
+    // Validate input parameters
+    if (!email || !pass) {
+      return null;
+    }
+
     const user = await this.prisma.usuarios.findUnique({
       where: { email },
-      select: {
-        id: true,
-        email: true,
-        contraseña: true,
-        id_rol: true,
-        nombre: true,
-        apellidos: true,
-        id_departamento: true,
-      },
     });
 
-    if (!user) {
-      throw new UnauthorizedException('Correo no encontrado.');
+    if (!user || !user.contraseña) {
+      return null;
     }
 
     const isMatch = await bcrypt.compare(pass, user.contraseña);
+
     if (!isMatch) {
-      throw new UnauthorizedException('La contraseña es incorrecta.');
+      return null;
     }
 
-    // Extraemos la contraseña y devolvemos el resto
+    // Si las credenciales son válidas, devolvemos el usuario sin la contraseña
     const { contraseña, ...result } = user;
-    return result; // { id, email, id_rol, nombre, apellidos }
+    return result;
   }
 
-  async login(user: {
-    id: number;
-    email: string;
-    id_rol: number;
-    nombre: string;
-    apellidos: string;
-    id_departamento?: number | null;
-  }) {
+  async login(user: any) {
+    // user comes from LocalStrategy validation, so it's already validated
+    if (!user) {
+      return {
+        success: false,
+        message: 'Credenciales inválidas',
+        data: null,
+      };
+    }
+
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       idRol: user.id_rol,
       nombre: user.nombre,
       apellidos: user.apellidos,
-      id_departamento: user.id_departamento || null, // Aseguramos que id_departamento sea opcional
+      id_departamento: user.id_departamento,
     };
+
     return {
       access_token: this.jwtService.sign(payload),
     };

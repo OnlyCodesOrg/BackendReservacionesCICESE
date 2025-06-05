@@ -186,9 +186,42 @@ export class SalasController {
     };
   }
 
-  async consultarDisponibilidadSala(@Body() fechaActual: Date) {
+  /**
+   * Consulta la disponibilidad de una sala para una fecha específica
+   * @param body { fechaActual: string }
+   * @returns Disponibilidad de la sala
+   */
+
+  @Get('consultar-disponibilidad')
+  @ApiOperation({
+    summary: 'Consultar disponibilidad de sala',
+    description:
+      'Consulta la disponibilidad de una sala para la fecha actual.\n El dia inicia a las 08:00 y termina  a las 20:00',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Disponibilidad de sala consultada exitosamente',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          idSala: { type: 'number', description: 'ID de la sala' },
+          nombreSala: { type: 'string', description: 'Nombre de la sala' },
+          disponibilidad: {
+            type: 'boolean',
+            description:
+              'Indica si la sala tiene disponibilidad durante el dia',
+          },
+        },
+      },
+    },
+  })
+  async consultarDisponibilidadSala() {
+    const hoy = new Date(); //Usa la fecha actual
+    const fechaFormateada = hoy.toISOString().split('T')[0]; // Formatea a YYYY-MM-DD
     const disponibilidad =
-      await this.salasService.consultarDisponibilidadSala(fechaActual);
+      await this.salasService.consultarDisponibilidadSala(fechaFormateada);
     return {
       success: true,
       message: 'Disponibilidad de sala consultada exitosamente',
