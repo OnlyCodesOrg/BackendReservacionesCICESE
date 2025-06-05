@@ -35,9 +35,7 @@ export class ReservacionesService {
     } = createDto;
 
     try {
-      console.log(
-        '   ↪️ insertando en la BD remota, preparación de fechas/hora...',
-      );
+      
       const horaInicioDate = new Date(`1970-01-01T${horaInicio}:00`);
       const horaFinDate = new Date(`1970-01-01T${horaFin}:00`);
 
@@ -70,13 +68,8 @@ export class ReservacionesService {
           // ---------------------------------------------
         },
       });
-      console.log('   ✅ Insert exitoso en BD remota:', nueva);
       return nueva;
     } catch (e) {
-      console.error(
-        '   ❌ Error al crear reservación en BD remota:',
-        e.message,
-      );
       throw new BadRequestException(
         'No se pudo crear la reservación: ' + e.message,
       );
