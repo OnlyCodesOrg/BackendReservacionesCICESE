@@ -1,6 +1,13 @@
 // src/reservaciones/reservaciones.controller.ts
 
-import { Controller, Post, Body, Get, Param, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { ReservacionesService } from './reservaciones.service';
 import { CreateReservacioneDto } from './dto/create-reservacione.dto';
 import { ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
@@ -8,29 +15,35 @@ import { respuestaGenerica } from 'src/salas/dto/respuesta-generica.dto';
 
 @Controller('reservaciones')
 export class ReservacionesController {
-  constructor(private readonly reservacionesService: ReservacionesService) { }
+  constructor(private readonly reservacionesService: ReservacionesService) {}
 
   @Get('/reporte/:idReservacion')
   @ApiOperation({
-    summary: "Obtiene el numero de asistencia real de dicha reservacion"
+    summary: 'Obtiene el numero de asistencia real de dicha reservacion',
   })
   @ApiParam({
     name: 'idReservacion',
     description: 'El id de la reservacion',
-    required: true
+    required: true,
   })
   @ApiResponse({
     status: 200,
-    description:'Retorna un json con un mensaje de posible error y un data, que puede ser null o el resultado de la consulta',
-    type: respuestaGenerica
+    description:
+      'Retorna un json con un mensaje de posible error y un data, que puede ser null o el resultado de la consulta',
+    type: respuestaGenerica,
   })
   @ApiResponse({
     status: 400,
-    description:'Retorna un json con un mensaje de posible error y un data, que puede ser null o el resultado de la consulta',
-    type: respuestaGenerica
+    description:
+      'Retorna un json con un mensaje de posible error y un data, que puede ser null o el resultado de la consulta',
+    type: respuestaGenerica,
   })
-  async ObtenerAsistenciaSalas(@Param('idReservacion', ParseIntPipe) idReservacion: number) {
-    return await this.reservacionesService.ObtenerAsistenciasSala(idReservacion);
+  async ObtenerAsistenciaSalas(
+    @Param('idReservacion', ParseIntPipe) idReservacion: number,
+  ) {
+    return await this.reservacionesService.ObtenerAsistenciasSala(
+      idReservacion,
+    );
   }
 
   @Post('/crear')

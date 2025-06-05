@@ -32,7 +32,8 @@ export class ParticipantesAdController {
       'Permite agregar un participante adicional a una reservación existente.',
   })
   @ApiBody({
-    description: 'Datos del participante adicional. Entrar al Try it Out para editar los campos.',
+    description:
+      'Datos del participante adicional. Entrar al Try it Out para editar los campos.',
     type: CreateParticipantesAdDto,
   })
   @ApiResponse({

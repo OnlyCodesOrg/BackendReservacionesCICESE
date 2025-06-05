@@ -2,25 +2,25 @@ import { PartcipantesAdicionales as modelo } from 'generated/prisma';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ParticipantesAd {
-@ApiProperty({
+  @ApiProperty({
     description: 'Id del participante adicional',
     example: 1,
   })
   id: number;
-@ApiProperty({
-    description: 'ID de la reservación a la que pertenece el participante adicional',
+  @ApiProperty({
+    description:
+      'ID de la reservación a la que pertenece el participante adicional',
     example: 123,
   })
   idReservacion: number;
-@ApiProperty({
+  @ApiProperty({
     description: 'Nombre del participante adicional',
     example: 'Juan Pérez',
   })
   nombre: string;
-@ApiProperty({
+  @ApiProperty({
     description: 'Email del participante adicional',
     example: 'perez@email.com',
   })
   email: string;
-
 }
