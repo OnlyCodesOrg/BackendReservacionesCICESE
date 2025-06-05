@@ -32,33 +32,9 @@ export class ParticipantesAdController {
       'Permite agregar un participante adicional a una reservación existente.',
   })
   @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        nombre: { type: 'string', description: 'Nombre del participante' },
-        email: { type: 'string', description: 'Email del participante' },
-        idReservacion: {
-          type: 'number',
-          description:
-            'ID de la reservación a la que se agregará el participante',
-        },
-      },
-    },
-  })
-  @ApiParam({
-    name: 'nombre',
-    description: 'Nombre del participante adicional',
-    required: true,
-  })
-  @ApiParam({
-    name: 'email',
-    description: 'Email del participante adicional',
-    required: true,
-  })
-  @ApiParam({
-    name: 'idReservacion',
-    description: 'ID de la reservación a la que se agregará el participante',
-    required: true,
+    description:
+      'Datos del participante adicional. Entrar al Try it Out para editar los campos.',
+    type: CreateParticipantesAdDto,
   })
   @ApiResponse({
     status: 201,
