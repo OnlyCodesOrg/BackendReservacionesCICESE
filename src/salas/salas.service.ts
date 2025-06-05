@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import {
   SalaDisponible,
   ConflictoHorario,
@@ -10,6 +14,7 @@ import {
 } from '../types';
 import { ReservacionesService } from 'src/reservaciones/reservaciones.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
 import { actualizarEquipo } from './dto/actualizar-equipo.dto';
 
 @Injectable()
@@ -17,7 +22,7 @@ export class SalasService {
   constructor(
     private prisma: PrismaService,
     private reservacionesService: ReservacionesService,
-  ) { }
+  ) {}
 
   /**
    * Obtiene las salas disponibles dentro de un rango de fechas
@@ -57,7 +62,7 @@ export class SalasService {
       );
 
       // Filtrar salas seleccionadas
-      let salasFiltradas = new Array<any>();
+      const salasFiltradas = new Array<any>();
       salasSeleccionadas.forEach((currentSelected) => {
         salasDisponibles.forEach((currentDisp) => {
           if (currentSelected === currentDisp.id) {
@@ -74,24 +79,24 @@ export class SalasService {
     }
   }
 
-
   /**
-   * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data, 
+   * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data,
    * donde data puede ser null en caso de no encontrar algo
    * @param idSala id de la sala
    * @returns {message:"ok"|| error encontrad,data:[equipos] || null }
    */
   async ObtenerEquipoDeSala(idSala: number) {
     try {
-      const equipo = await this.prisma.equiposSala.findMany({ where: { idSala: idSala } });
-      if (!equipo) throw new Error("Equipo no encontrado. ", equipo);
+      const equipo = await this.prisma.equiposSala.findMany({
+        where: { idSala: idSala },
+      });
+      if (!equipo) throw new Error('Equipo no encontrado. ', equipo);
       return { message: 'ok', data: equipo };
     } catch (e) {
       console.error(e.message);
       return { message: e.message, data: null };
     }
   }
-
 
   /**
    * Actualiza los atributos del equipo
@@ -100,16 +105,19 @@ export class SalasService {
    */
   async ActualizarEquipoDeSala(nuevoEquipo: actualizarEquipo) {
     try {
-      const equipo = await this.prisma.equiposSala.findFirst({ where: { id: nuevoEquipo.id } });
-      if (!equipo) throw new Error("Equipo no encontrado.");
+      const equipo = await this.prisma.equiposSala.findFirst({
+        where: { id: nuevoEquipo.id },
+      });
+      if (!equipo) throw new Error('Equipo no encontrado.');
 
-      const { id: _, ...equipoSinId } = nuevoEquipo
+      const { id: _, ...equipoSinId } = nuevoEquipo;
 
       const res = await this.prisma.equiposSala.update({
-        where: { id: equipo.id }, data: equipoSinId
-      })
-      if (!res) throw new Error("Error al actualizar el equipo. ", res);
-      return { message: "ok", data: res };
+        where: { id: equipo.id },
+        data: equipoSinId,
+      });
+      if (!res) throw new Error('Error al actualizar el equipo. ', res);
+      return { message: 'ok', data: res };
     } catch (e) {
       console.error(e.message);
       return { message: e.message, data: null };
@@ -241,6 +249,216 @@ export class SalasService {
   /**
    * Genera sugerencias de horarios disponibles
    */
+  /**
+   * Obtiene el inventario de una sala específica
+   * @param idSala ID de la sala
+   * @returns Información de la sala y su inventario
+   */
+  async obtenerInventarioSala(idSala: number) {
+    // Verificar que la sala existe
+    const sala = await this.prisma.salas.findUnique({
+      where: { id: idSala },
+      select: {
+        id: true,
+        nombreSala: true,
+        ubicacion: true,
+      },
+    });
+
+    if (!sala) {
+      throw new NotFoundException(`Sala con ID ${idSala} no encontrada`);
+    }
+
+    // Obtener equipos asociados a la sala desde la tabla EquiposSala
+    const equiposSala = await this.prisma.equiposSala.findMany({
+      where: { idSala },
+      include: {
+        tipoEquipo: true,
+      },
+    });
+
+    const inventarioMap = new Map<string, any>();
+
+    const elementosInventario = [
+      'Cámara',
+      'Micrófono',
+      'Pantalla',
+      'Proyector',
+      'Silla',
+      'Mesa',
+      'Pizarrón',
+      'Plumón',
+      'Borrador',
+    ];
+
+    elementosInventario.forEach((elemento) => {
+      inventarioMap.set(elemento, {
+        nombre: elemento,
+        detalles: {
+          Operativo: 0,
+          Dañado: 0,
+          NoOperativo: 0,
+          EnMantenimiento: 0,
+        },
+      });
+    });
+    // Actualizar cantidades basadas en los equipos encontrados
+    equiposSala.forEach((equipo) => {
+      const nombreEquipo = equipo.tipoEquipo.nombre;
+      for (const elemento of elementosInventario) {
+        if (nombreEquipo.toLowerCase().includes(elemento.toLowerCase())) {
+          const item = inventarioMap.get(elemento);
+          if (item) {
+            if (item.detalles[equipo.estado] !== undefined) {
+              item.detalles[equipo.estado] += equipo.cantidad;
+            } else {
+              item.detalles[equipo.estado] = equipo.cantidad;
+            }
+          }
+          break;
+        }
+      }
+    });
+
+    const inventario = Array.from(inventarioMap.values());
+
+    return {
+      sala,
+      inventario,
+    };
+  }
+
+  /**
+   * Actualiza el inventario de una sala específica
+   * @param idSala ID de la sala
+   * @param elementos Lista de elementos del inventario a actualizar
+   * @returns Información de la sala actualizada
+   */
+  async actualizarInventarioSala(
+    idSala: number,
+    elementos: ActualizarElementoInventarioDto[],
+  ) {
+    const sala = await this.prisma.salas.findUnique({
+      where: { id: idSala },
+      select: {
+        id: true,
+        nombreSala: true,
+      },
+    });
+
+    if (!sala) {
+      throw new NotFoundException(`Sala con ID ${idSala} no encontrada`);
+    }
+
+    const elementosInventario = [
+      'Cámara',
+      'Micrófono',
+      'Pantalla',
+      'Proyector',
+      'Silla',
+      'Mesa',
+      'Pizarrón',
+      'Plumón',
+      'Borrador',
+    ];
+    const tiposEquipo = await this.prisma.tiposEquipo.findMany();
+    console.log(
+      'Tipos de equipo disponibles:',
+      tiposEquipo.map((t) => t.nombre),
+    );
+
+    // Función para normalizar texto (eliminar acentos y convertir a minúsculas)
+    const normalizar = (texto: string) => {
+      return texto
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    };
+
+    // Asegurarse de que todos los elementos del inventario existen como tipos de equipo
+    for (const elementoNombre of elementosInventario) {
+      const tipoExistente = tiposEquipo.find(
+        (tipo) =>
+          normalizar(tipo.nombre) === normalizar(elementoNombre) ||
+          normalizar(tipo.nombre).includes(normalizar(elementoNombre)) ||
+          normalizar(elementoNombre).includes(normalizar(tipo.nombre)),
+      );
+
+      if (!tipoExistente) {
+        // Crear el tipo de equipo si no existe
+        await this.prisma.tiposEquipo.create({
+          data: {
+            nombre: elementoNombre,
+            descripcion: `Tipo de equipo para ${elementoNombre}`,
+          },
+        });
+      }
+    }
+
+    // Recargar los tipos de equipo después de posibles creaciones
+    const tiposEquipoActualizados = await this.prisma.tiposEquipo.findMany();
+
+    for (const elemento of elementos) {
+      // Verificar que el elemento está en la lista de elementos permitidos
+      const elementoPermitido = elementosInventario.find(
+        (e) => normalizar(e) === normalizar(elemento.nombre),
+      );
+
+      if (!elementoPermitido) {
+        throw new BadRequestException(
+          `El elemento '${elemento.nombre}' no está en la lista de elementos permitidos`,
+        );
+      }
+
+      // Buscar el tipo de equipo correspondiente
+      const tipoEquipo = tiposEquipoActualizados.find(
+        (tipo) =>
+          normalizar(tipo.nombre) === normalizar(elemento.nombre) ||
+          normalizar(tipo.nombre).includes(normalizar(elemento.nombre)) ||
+          normalizar(elemento.nombre).includes(normalizar(tipo.nombre)),
+      );
+
+      if (!tipoEquipo) {
+        throw new NotFoundException(
+          `Tipo de equipo '${elemento.nombre}' no encontrado`,
+        );
+      }
+
+      const equipoExistente = await this.prisma.equiposSala.findFirst({
+        where: {
+          idSala,
+          idTipoEquipo: tipoEquipo.id,
+        },
+      });
+
+      if (equipoExistente) {
+        // Actualizar el equipo existente
+        await this.prisma.equiposSala.update({
+          where: { id: equipoExistente.id },
+          data: {
+            cantidad: elemento.cantidad,
+            estado: elemento.estado,
+          },
+        });
+      } else {
+        // Crear un nuevo registro de equipo para la sala
+        await this.prisma.equiposSala.create({
+          data: {
+            idSala,
+            idTipoEquipo: tipoEquipo.id,
+            cantidad: elemento.cantidad,
+            estado: elemento.estado,
+          },
+        });
+      }
+    }
+
+    return {
+      id: sala.id,
+      nombreSala: sala.nombreSala,
+    };
+  }
+
   private generarSugerenciasHorario(
     idSala: number,
     fechaEvento: Date,

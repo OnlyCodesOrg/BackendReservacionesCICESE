@@ -1,4 +1,4 @@
-import { PartialType } from "@nestjs/swagger";
-import { EquipoSala } from "../../entities/EquipoSala.entity";
+import { PartialType } from '@nestjs/swagger';
+import { EquipoSala } from '../../entities/EquipoSala.entity';
 
-export class actualizarEquipo extends PartialType(EquipoSala) { }
+export class actualizarEquipo extends PartialType(EquipoSala) {}
