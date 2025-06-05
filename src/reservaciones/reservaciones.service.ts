@@ -19,6 +19,22 @@ export class ReservacionesService {
     : null;
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * 
+   * @param idReservacion 
+   * @returns el numero de asistencia real
+   */
+  async ObtenerAsistenciasSala(idReservacion: number) {
+    try {
+      const asistencias = await this.prisma.reservaciones.findUnique({ where: { id: idReservacion } });
+      if (!asistencias) throw new Error("Error con la consulta");
+      return { message: "ok", data: asistencias.numeroAsistentesReal };
+    } catch (e) {
+      console.error(e);
+      return { message: e.message, data: null };
+    }
+  }
+
   async crearReservacion(createDto: CreateReservacioneDto) {
     console.log('=== crearReservacion llamado con DTO:', createDto);
     const {
