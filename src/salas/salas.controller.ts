@@ -394,4 +394,46 @@ export class SalasController {
       data: detalle,
     };
   }
+
+  /**
+   * Obtiene información de una sala específica
+   * @param idSala ID de la sala
+   * @returns Información completa de la sala
+   */
+  @Get(':idSala')
+  @ApiOperation({
+    summary: 'Obtener información de sala',
+    description: 'Obtiene la información completa de una sala específica',
+  })
+  @ApiParam({
+    name: 'idSala',
+    description: 'ID de la sala',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Información de la sala obtenida exitosamente',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Sala no encontrada',
+  })
+  async obtenerSalaPorId(@Param('idSala') idSala: string) {
+    const id = parseInt(idSala);
+    const sala = await this.salasService.obtenerSalaPorId(id);
+
+    if (!sala) {
+      return {
+        success: false,
+        message: 'Sala no encontrada',
+        data: null,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Sala obtenida exitosamente',
+      data: sala,
+    };
+  }
 }
