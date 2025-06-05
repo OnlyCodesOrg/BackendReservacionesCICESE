@@ -220,11 +220,8 @@ export class SalasController {
   async consultarDisponibilidadSala() {
     const hoy = new Date(); //Usa la fecha actual
     const fechaFormateada = hoy.toISOString().split('T')[0]; // Formatea a YYYY-MM-DD
-    const disponibilidad =
-      await this.salasService.consultarDisponibilidadSala(fechaFormateada);
-    return {
-      data: disponibilidad,
-    };
+
+    return await this.salasService.consultarDisponibilidadSala(fechaFormateada);
   }
 
   /**
