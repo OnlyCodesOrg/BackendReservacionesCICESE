@@ -577,7 +577,6 @@ export class SalasService {
     const reservaciones = await this.prisma.reservaciones.findMany({
       where: {
         idSala: idSala,
-        estadoSolicitud: 'Aprobada',
       },
       include: {
         usuario: {
@@ -603,6 +602,8 @@ export class SalasService {
       take: limite,
       skip: offset,
     });
+
+    console.log('Reservaciones obtenidas:', reservaciones);
 
     return reservaciones.map((reservacion) => ({
       id: reservacion.id,
