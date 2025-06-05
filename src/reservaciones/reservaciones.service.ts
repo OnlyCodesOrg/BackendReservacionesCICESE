@@ -177,6 +177,8 @@ export class ReservacionesService {
         idSala: true,
         fechaEvento: true,
         estadoSolicitud: true,
+        horaInicio: true,
+        horaFin: true,
       },
       where: {
         idUsuario: idUsuario,
@@ -209,6 +211,24 @@ export class ReservacionesService {
         nombreSala: sala ? sala.nombreSala : 'Sala no encontrada',
         fechaEvento: reservacion.fechaEvento,
         estadoSolicitud: reservacion.estadoSolicitud,
+        horaInicio: (() => {
+          const date =
+            reservacion.horaInicio instanceof Date
+              ? reservacion.horaInicio
+              : new Date(reservacion.horaInicio);
+          const hours = String(date.getUTCHours()).padStart(2, '0');
+          const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+          return `${hours}:${minutes}`;
+        })(),
+        horaFin: (() => {
+          const date =
+            reservacion.horaFin instanceof Date
+              ? reservacion.horaFin
+              : new Date(reservacion.horaFin);
+          const hours = String(date.getUTCHours()).padStart(2, '0');
+          const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+          return `${hours}:${minutes}`;
+        })(),
       };
     });
 
@@ -220,6 +240,8 @@ export class ReservacionesService {
       salaEvento: reservacion.nombreSala,
       fechaEvento: reservacion.fechaEvento,
       estadoActual: reservacion.estadoSolicitud,
+      horaInicio: reservacion.horaInicio,
+      horaFin: reservacion.horaFin,
     }));
   }
 
