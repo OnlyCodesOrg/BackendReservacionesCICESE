@@ -202,6 +202,16 @@ export class ReservacionesController {
             type: 'string',
             description: 'Estado actual de la solicitud de reservación',
           },
+          horaInicio: {
+            type: 'string',
+            format: 'time',
+            description: 'Hora de inicio del evento en formato ISO 8601',
+          },
+          horaFin: {
+            type: 'string',
+            format: 'time',
+            description: 'Hora de fin del evento en formato ISO 8601',
+          },
         },
       },
     },
