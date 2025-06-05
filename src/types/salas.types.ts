@@ -19,6 +19,13 @@ export interface SalaDisponible {
   fin: Date;
 }
 
+export interface disponibilidadDeSala {
+  id: number;
+  nombreSala: string;
+  ubicacion?: string | null;
+  estaDisponible: boolean;
+}
+
 export interface ConflictoHorario {
   hasConflict: boolean;
   conflictType?: ConflictoTipo;

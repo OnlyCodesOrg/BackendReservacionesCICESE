@@ -77,7 +77,7 @@ model Usuarios {
   nombre          String  @db.VarChar(100)
   apellidos       String  @db.VarChar(100)
   email           String  @unique @db.VarChar(100)
-  contraseña      String  @db.VarChar(100)
+  contraseña      String  @db.VarChar(255)
   id_rol          Int
   id_departamento Int?
   activo          Boolean @default(true)
