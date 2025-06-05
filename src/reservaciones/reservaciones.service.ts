@@ -1,5 +1,5 @@
 // src/reservaciones/reservaciones.service.ts
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   Injectable,
   BadRequestException,
@@ -8,9 +8,15 @@ import {
 } from '@nestjs/common';
 import { CreateReservacioneDto } from './dto/create-reservacione.dto';
 import { TipoEvento } from 'generated/prisma';
-
+import * as Handlebars from 'handlebars';
+import * as fs from 'fs';
+import * as path from 'path';
+import { Resend } from 'resend';
 @Injectable()
 export class ReservacionesService {
+  private resend = process.env.RESEND_API_KEY
+    ? new Resend(process.env.RESEND_API_KEY)
+    : null;
   constructor(private prisma: PrismaService) {}
 
   async crearReservacion(createDto: CreateReservacioneDto) {
@@ -34,6 +40,16 @@ export class ReservacionesService {
       );
       const horaInicioDate = new Date(`1970-01-01T${horaInicio}:00`);
       const horaFinDate = new Date(`1970-01-01T${horaFin}:00`);
+
+      const usuario = await this.prisma.usuarios.findUnique({
+        where: { id: idUsuario },
+      });
+      const sala = await this.prisma.salas.findUnique({
+        where: { id: idSala },
+      });
+      if (usuario) {
+        await this.enviarConfirmacionEmail(usuario, createDto, sala);
+      }
 
       const nueva = await this.prisma.reservaciones.create({
         data: {
@@ -69,6 +85,80 @@ export class ReservacionesService {
 
   async obtenerReservaciones() {
     return this.prisma.reservaciones.findMany();
+  }
+  async enviarConfirmacionEmail(
+    usuario: any,
+    reservacion: CreateReservacioneDto,
+    sala: any,
+    departamento: any | null = null,
+  ) {
+    try {
+      if (!this.resend) {
+        console.log('⚠️ Resend no está configurado. Saltando envío de email.');
+        return;
+      }
+
+      const templatePath = path.join(
+        __dirname,
+        '..',
+        'template',
+        'correo_cicese_formato.hbs',
+      );
+      console.log('📧 Intentando leer template desde:', templatePath);
+
+      const templateHtml = fs.readFileSync(templatePath, 'utf8');
+
+      const template = Handlebars.compile(templateHtml);
+      const htmlContent = template({
+        name: usuario.nombre,
+        nombreEvento: reservacion.nombreEvento,
+        tipo: reservacion.tipoEvento,
+        fecha: reservacion.fechaEvento,
+        horaInicio: reservacion.horaInicio,
+        horaFin: reservacion.horaFin,
+        participantes: 0,
+        solicitante: usuario.nombre || 'Usuario',
+        departamento: 'N/A',
+        emailSolicitante: usuario.email,
+        nombreSala: sala.nombreSala || 'Sala asignada',
+        ubicacionSala: sala.ubicacion || 'Edificio principal',
+      });
+
+      await this.resend.emails.send({
+        from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
+        to: usuario.email,
+        subject: 'Confirmación de Reservación',
+        html: htmlContent,
+      });
+
+      console.log(
+        '✅ Email de confirmación enviado exitosamente a:',
+        usuario.email,
+      );
+    } catch (error) {
+      console.error('❌ Error al enviar email de confirmación:', error.message);
+      // No lanzamos la excepción para que no afecte la creación de la reservación
+    }
+  }
+
+  async enviarCorreoPrueba() {
+    if (!this.resend) {
+      return {
+        message:
+          'Resend no está configurado. No se pudo enviar el correo de prueba.',
+      };
+    }
+
+    this.resend.emails.send({
+      from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
+      to: 'gonzalez372576@uabc.edu.mx',
+      subject: 'Prueba de envío de correo',
+      html: '<h1>¡Hola!</h1><p>Este es un correo de prueba.</p>',
+    });
+
+    return {
+      message: 'Correo de prueba enviado correctamente',
+    };
   }
 
   /**

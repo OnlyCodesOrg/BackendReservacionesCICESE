@@ -2,10 +2,10 @@ import {
   Controller,
   Get,
   Post,
-  Patch,
   Body,
   Param,
   Query,
+  BadRequestException,
   ParseIntPipe,
 } from '@nestjs/common';
 import {
@@ -22,9 +22,14 @@ import { ValidarDisponibilidadResponseDto } from './dto/validar-disponibilidad-r
 import { HistorialSalasResponseDto } from './dto/historial-salas-response.dto';
 import { HistorialUsoSalaResponseDto } from './dto/historial-uso-sala-response.dto';
 import { DetalleEventoResponseDto } from './dto/detalle-evento-response.dto';
-import { actualizarEquipo } from './dto/actualizar-equipo.dto';
-import { respuestaGenerica } from './dto/respuesta-generica.dto';
+import { InventarioSalaResponseDto } from './dto/inventario-sala.dto';
+import {
+  ActualizarInventarioResponseDto,
+  ActualizarInventarioSalaDto,
+} from './dto/actualizar-inventario.dto';
 import { listarSalas } from './dto/listar-equipo.dto';
+import { respuestaGenerica } from './dto/respuesta-generica.dto';
+import { actualizarEquipo } from './dto/actualizar-equipo.dto';
 
 @ApiTags('salas')
 @Controller('salas')
@@ -257,6 +262,98 @@ export class SalasController {
    * @param idReservacion ID de la reservación
    * @returns Detalle completo del evento
    */
+  /**
+   * Obtiene el inventario de una sala específica
+   * @param idSala ID de la sala
+   * @returns Información detallada del inventario de la sala
+   */
+  @Get('inventario/:idSala')
+  @ApiOperation({
+    summary: 'Obtener inventario de sala',
+    description:
+      'Obtiene el inventario completo de una sala específica incluyendo cantidades y estado de los elementos',
+  })
+  @ApiParam({
+    name: 'idSala',
+    description: 'ID de la sala',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Inventario obtenido exitosamente',
+    type: InventarioSalaResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Sala no encontrada',
+  })
+  async obtenerInventarioSala(
+    @Param('idSala') idSala: string,
+  ): Promise<InventarioSalaResponseDto> {
+    const id = parseInt(idSala);
+    const resultado = await this.salasService.obtenerInventarioSala(id);
+
+    return {
+      success: true,
+      message: 'Inventario obtenido exitosamente',
+      sala: {
+        id: resultado.sala.id,
+        nombreSala: resultado.sala.nombreSala,
+        ubicacion: resultado.sala.ubicacion || undefined,
+      },
+      inventario: resultado.inventario,
+    };
+  }
+
+  @Post('inventario/:idSala')
+  @ApiOperation({
+    summary: 'Actualizar inventario de sala',
+    description:
+      'Permite a un técnico modificar el inventario de una sala específica',
+  })
+  @ApiParam({
+    name: 'idSala',
+    description: 'ID de la sala',
+    type: 'number',
+  })
+  @ApiBody({ type: ActualizarInventarioSalaDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Inventario actualizado exitosamente',
+    type: ActualizarInventarioResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Sala no encontrada',
+  })
+  async actualizarInventarioSala(
+    @Param('idSala') idSala: string,
+    @Body() actualizarInventarioDto: ActualizarInventarioSalaDto,
+  ): Promise<ActualizarInventarioResponseDto> {
+    const id = parseInt(idSala);
+
+    // Verificar que el ID de la sala en el path coincide con el del body
+    if (
+      actualizarInventarioDto.idSala &&
+      actualizarInventarioDto.idSala !== id
+    ) {
+      throw new BadRequestException(
+        'El ID de la sala en el path no coincide con el ID en el body',
+      );
+    }
+
+    const resultado = await this.salasService.actualizarInventarioSala(
+      id,
+      actualizarInventarioDto.elementos,
+    );
+
+    return {
+      success: true,
+      message: 'Inventario actualizado exitosamente',
+      sala: resultado,
+    };
+  }
+
   @Get('evento/:idReservacion')
   @ApiOperation({
     summary: 'Obtener detalle de evento',
