@@ -41,6 +41,7 @@ export class ReservacionesService {
       numeroReservacion,
       idUsuario,
       idSala,
+      idTecnicoAsignado,
       nombreEvento,
       tipoEvento,
       fechaEvento,
@@ -54,7 +55,10 @@ export class ReservacionesService {
       
       const horaInicioDate = new Date(`1970-01-01T${horaInicio}:00`);
       const horaFinDate = new Date(`1970-01-01T${horaFin}:00`);
-
+      
+      const tecnico = await this.prisma.tecnicos.findUnique({
+        where: { id: idTecnicoAsignado },
+      });
       const usuario = await this.prisma.usuarios.findUnique({
         where: { id: idUsuario },
       });
@@ -64,12 +68,14 @@ export class ReservacionesService {
       if (usuario) {
         await this.enviarConfirmacionEmail(usuario, createDto, sala);
       }
+      if (!tecnico || !sala || !usuario) throw new Error("Error con la consulta");
 
       const nueva = await this.prisma.reservaciones.create({
         data: {
           numeroReservacion: numeroReservacion,
           idUsuario: idUsuario,
           idSala: idSala,
+          idTecnicoAsignado: idTecnicoAsignado ?? null, // Puede ser null si no se asigna técnico
           nombreEvento: nombreEvento,
           tipoEvento: tipoEvento as TipoEvento, // Cast string to enum type (TipoEvento)
           fechaEvento: new Date(fechaEvento), // convierte ISO string a Date
