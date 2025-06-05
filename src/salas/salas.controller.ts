@@ -223,8 +223,6 @@ export class SalasController {
     const disponibilidad =
       await this.salasService.consultarDisponibilidadSala(fechaFormateada);
     return {
-      success: true,
-      message: 'Disponibilidad de sala consultada exitosamente',
       data: disponibilidad,
     };
   }
