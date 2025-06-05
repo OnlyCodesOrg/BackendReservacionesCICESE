@@ -33,12 +33,6 @@ export class AuthTokenDto {
     description: 'Token JWT para autenticación',
   })
   access_token: string;
-
-  @ApiProperty({
-    type: UserInfoDto,
-    description: 'Información del usuario',
-  })
-  user: UserInfoDto;
 }
 
 export class AuthResponseDto {
