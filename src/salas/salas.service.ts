@@ -16,68 +16,69 @@ import { ReservacionesService } from 'src/reservaciones/reservaciones.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
 import { actualizarEquipo } from './dto/actualizar-equipo.dto';
+import { respuestaGenerica } from './dto/respuesta-generica.dto';
+import { Salas } from 'generated/prisma';
 
 @Injectable()
 export class SalasService {
   constructor(
     private prisma: PrismaService,
     private reservacionesService: ReservacionesService,
-  ) {}
+  ) { }
+
 
   /**
-   * Obtiene las salas disponibles dentro de un rango de fechas
-   * @param fechaInicio
-   * @param fechaFin
-   * @param salasSeleccionadas [id,id,id]
-   * @returns La lista de salas disponibles dentro del rango de tiempo
+   * 
+   * @param fecha DIA del evento
+   * @param horaInicio Hora en formato HH:MM
+   * @param horaFin Hora en formato HH:MM
+   * @param salasSeleccionadas Array opcional de salas seleccionadas [id,id]
+   * @returns {message:'mensaje de error || ok, dat:'Un array con las salas disponibles' || null}
    */
-  ObtenerSalas(
-    fechaInicio: Date,
-    fechaFin: Date,
-    salasSeleccionadas?: number[],
-  ) {
-    const sala1: SalaDisponible = {
-      id: 1,
-      inicio: new Date('2025-05-10T00:00:00Z'),
-      fin: new Date('2025-05-11T00:00:00Z'),
-    };
-    const sala2: SalaDisponible = {
-      id: 2,
-      inicio: new Date('2025-06-10T00:00:00Z'),
-      fin: new Date('2025-06-11T00:00:00Z'),
-    };
-    const sala3: SalaDisponible = {
-      id: 3,
-      inicio: new Date('2025-06-20T00:00:00Z'),
-      fin: new Date('2025-06-21T00:00:00Z'),
-    };
-    const salas = [sala1, sala2, sala3];
+  async ObtenerSalasDisponiblesPorHora(fecha: string, horaInicio: string, horaFin: string, salasSeleccionadas?: number[],) {
+    try {
+      const dia = new Date(`${fecha}T00:00:00.000Z`);
+      const horaInicioUTC = new Date(`1970-01-01T${horaInicio}:00.000Z`);
+      const horaFinUTC = new Date(`1970-01-01T${horaFin}:00.000Z`);
 
-    let salasDisponibles;
-    // Si hay salas seleccionadas por el usuario
-    if (salasSeleccionadas && salasSeleccionadas.length > 0) {
-      // Filtrar salas dentro del rango
-      salasDisponibles = salas.filter(
-        (current) => current.inicio >= fechaInicio && current.fin <= fechaFin,
-      );
-
-      // Filtrar salas seleccionadas
-      const salasFiltradas = new Array<any>();
-      salasSeleccionadas.forEach((currentSelected) => {
-        salasDisponibles.forEach((currentDisp) => {
-          if (currentSelected === currentDisp.id) {
-            salasFiltradas.push(currentDisp);
-          }
-        });
+      // Obtener reservaciones de ese día
+      const resPorDia = await this.prisma.reservaciones.findMany({
+        where: {
+          fechaEvento: dia,
+          ...(salasSeleccionadas?.length ? { idSala: { in: salasSeleccionadas } } : {}),
+        },
       });
-      return salasFiltradas;
-    } else {
-      salasDisponibles = salas.filter(
-        (current) => current.inicio >= fechaInicio && current.fin <= fechaFin,
-      );
-      return salasDisponibles;
+
+      // Filtrar reservaciones que se solapan con el rango de horas dado
+      const resPorHora = resPorDia.filter((res) => {
+        const inicio = res.horaInicio;
+        const fin = res.horaFin;
+        return (
+          inicio.getTime() < horaFinUTC.getTime() && // Empieza antes de que termine
+          fin.getTime() > horaInicioUTC.getTime()    // Termina después de que empieza
+        );
+      });
+      
+      const salasOcupadas = resPorHora.map((current) => current.idSala);
+
+      const salasDisponibles = await this.prisma.salas.findMany({
+        where: {
+          AND: [
+            ...(salasSeleccionadas?.length
+              ? [{ id: { in: salasSeleccionadas } }]
+              : []),
+            { id: { notIn: salasOcupadas } },
+          ],
+        },
+      });
+
+      return { message: 'ok', data: salasDisponibles };
+    } catch (e: any) {
+      console.error(e);
+      return { message: e.message, data: null };
     }
   }
+
 
   /**
    * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data,

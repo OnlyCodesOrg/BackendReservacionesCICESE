@@ -34,7 +34,7 @@ import { actualizarEquipo } from './dto/actualizar-equipo.dto';
 @ApiTags('salas')
 @Controller('salas')
 export class SalasController {
-  constructor(private readonly salasService: SalasService) {}
+  constructor(private readonly salasService: SalasService) { }
 
   /**
    * Obtiene la lista de salas disponibles dentro del rango de fechas
@@ -55,13 +55,8 @@ export class SalasController {
     status: 400,
     type: respuestaGenerica,
   })
-  async ListarSalas(@Body() data: listarSalas) {
-    const res = this.salasService.ObtenerSalas(
-      new Date(data.inicioFecha),
-      new Date(data.finFecha),
-      data.salasSeleccionadas,
-    );
-    return { message: 'ok', data: res };
+  async ListarSalas(@Body() data: any) {
+    return await this.salasService.ObtenerSalasDisponiblesPorHora(data.fecha, data.horaInicio, data.horaFin, data.salasSeleccionadas,);
   }
 
   /**
