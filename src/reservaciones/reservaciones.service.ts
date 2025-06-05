@@ -11,7 +11,23 @@ import { TipoEvento } from 'generated/prisma';
 
 @Injectable()
 export class ReservacionesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
+
+  /**
+   * 
+   * @param idReservacion 
+   * @returns el numero de asistencia real
+   */
+  async ObtenerAsistenciasSala(idReservacion: number) {
+    try {
+      const asistencias = await this.prisma.reservaciones.findUnique({ where: { id: idReservacion } });
+      if (!asistencias) throw new Error("Error con la consulta");
+      return { message: "ok", data: asistencias.numeroAsistentesReal };
+    } catch (e) {
+      console.error(e);
+      return { message: e.message, data: null };
+    }
+  }
 
   async crearReservacion(createDto: CreateReservacioneDto) {
     console.log('=== crearReservacion llamado con DTO:', createDto);
@@ -41,7 +57,7 @@ export class ReservacionesService {
           idUsuario: idUsuario,
           idSala: idSala,
           nombreEvento: nombreEvento,
-          tipoEvento: tipoEvento as TipoEvento , // Cast string to enum type (TipoEvento)
+          tipoEvento: tipoEvento as TipoEvento, // Cast string to enum type (TipoEvento)
           fechaEvento: new Date(fechaEvento), // convierte ISO string a Date
           horaInicio: horaInicioDate, // guarda solo hora (Time)
           horaFin: horaFinDate,
