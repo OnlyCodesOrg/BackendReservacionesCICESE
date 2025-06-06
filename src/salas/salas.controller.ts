@@ -56,14 +56,45 @@ export class SalasController {
     type: respuestaGenerica,
   })
   async ListarSalas(@Body() data: any) {
-    return await this.salasService.ObtenerSalasDisponiblesPorHora(data.fecha, data.horaInicio, data.horaFin, data.salasSeleccionadas,);
+    return await this.salasService.ObtenerSalasDisponiblesPorHora(
+      data.fecha,
+      data.horaInicio,
+      data.horaFin,
+      data.salasSeleccionadas,
+    );
+  }
+
+  /**
+   * Obtiene la sala por id
+   * @param id Id de la sala
+   * @returns {message:error|| ok, data:null||sala}
+   */
+
+  @Get('obtener/:id')
+  @ApiOperation({
+    description: 'Obtiene una sala por Id',
+  })
+  @ApiParam({
+    name:"id",
+    description:"id de la sala"
+  })
+  @ApiResponse({
+    status: 200,
+    type: respuestaGenerica,
+  })
+  @ApiResponse({
+    status: 400,
+    type: respuestaGenerica,
+  })
+  async obtenerSala(@Param('id', ParseIntPipe) id: number) {
+    return await this.salasService.ObtenerSalaPorId(id);
   }
 
   /**
    * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data,
    * donde data puede ser null en caso de no encontrar algo
    * @param idSala id de la sala, enviado desde la URL
-   * @returns {message:"ok"|| error encontrad,data:[equipos] || null }
+   * @returns {message:"ok"|| error encontrad,data:[{equipo, tipoEquipo},{equipo, tipoEquipo},{equipo, tipoEquipo}] || null }
    */
   @ApiOperation({
     description: 'Obtiene la lista de equipos que tenga dicha sala',

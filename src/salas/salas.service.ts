@@ -26,16 +26,20 @@ export class SalasService {
     private reservacionesService: ReservacionesService,
   ) { }
 
-
   /**
-   * 
+   *
    * @param fecha DIA del evento
    * @param horaInicio Hora en formato HH:MM
    * @param horaFin Hora en formato HH:MM
    * @param salasSeleccionadas Array opcional de salas seleccionadas [id,id]
    * @returns {message:'mensaje de error || ok, dat:'Un array con las salas disponibles' || null}
    */
-  async ObtenerSalasDisponiblesPorHora(fecha: string, horaInicio: string, horaFin: string, salasSeleccionadas?: number[],) {
+  async ObtenerSalasDisponiblesPorHora(
+    fecha: string,
+    horaInicio: string,
+    horaFin: string,
+    salasSeleccionadas?: number[],
+  ) {
     try {
       const dia = new Date(`${fecha}T00:00:00.000Z`);
       const horaInicioUTC = new Date(`1970-01-01T${horaInicio}:00.000Z`);
@@ -45,7 +49,9 @@ export class SalasService {
       const resPorDia = await this.prisma.reservaciones.findMany({
         where: {
           fechaEvento: dia,
-          ...(salasSeleccionadas?.length ? { idSala: { in: salasSeleccionadas } } : {}),
+          ...(salasSeleccionadas?.length
+            ? { idSala: { in: salasSeleccionadas } }
+            : {}),
         },
       });
 
@@ -55,10 +61,10 @@ export class SalasService {
         const fin = res.horaFin;
         return (
           inicio.getTime() < horaFinUTC.getTime() && // Empieza antes de que termine
-          fin.getTime() > horaInicioUTC.getTime()    // Termina después de que empieza
+          fin.getTime() > horaInicioUTC.getTime() // Termina después de que empieza
         );
       });
-      
+
       const salasOcupadas = resPorHora.map((current) => current.idSala);
 
       const salasDisponibles = await this.prisma.salas.findMany({
@@ -79,12 +85,11 @@ export class SalasService {
     }
   }
 
-
   /**
    * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data,
    * donde data puede ser null en caso de no encontrar algo
    * @param idSala id de la sala
-   * @returns {message:"ok"|| error encontrad,data:[equipos] || null }
+   * @returns {message:"ok"|| error encontrad,data:[{equipo , detalles}] || null }
    */
   async ObtenerEquipoDeSala(idSala: number) {
     try {
@@ -92,9 +97,31 @@ export class SalasService {
         where: { idSala: idSala },
       });
       if (!equipo) throw new Error('Equipo no encontrado. ', equipo);
-      return { message: 'ok', data: equipo };
+
+      const listaDeEquipo = await Promise.all(equipo.map(async (current) => {
+        const tipoEquipo = await this.prisma.tiposEquipo.findUnique({ where: { id: current.idTipoEquipo } })
+        return { equipo: current, detalles: tipoEquipo };
+      }));
+
+      return { message: 'ok', data: listaDeEquipo };
     } catch (e) {
       console.error(e.message);
+      return { message: e.message, data: null };
+    }
+  }
+
+  /**
+   * Obtiene la sala por id
+   * @param id Id de la sala
+   * @returns {message:error|| ok, data:null||sala}
+   */
+  async ObtenerSalaPorId(id: number) {
+    try {
+      const sala = await this.prisma.salas.findUnique({ where: { id: id } });
+      if (!sala) throw new Error("Sala no encontrada");
+      return { message: "ok", data: sala };
+    } catch (e) {
+      console.error(e);
       return { message: e.message, data: null };
     }
   }
