@@ -14,8 +14,28 @@ import * as path from 'path';
 import { Resend } from 'resend';
 @Injectable()
 export class ReservacionesService {
-  private resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+  private resend = process.env.RESEND_API_KEY
+    ? new Resend(process.env.RESEND_API_KEY)
+    : null;
   constructor(private prisma: PrismaService) {}
+
+  /**
+   *
+   * @param idReservacion
+   * @returns el numero de asistencia real
+   */
+  async ObtenerAsistenciasSala(idReservacion: number) {
+    try {
+      const asistencias = await this.prisma.reservaciones.findUnique({
+        where: { id: idReservacion },
+      });
+      if (!asistencias) throw new Error('Error con la consulta');
+      return { message: 'ok', data: asistencias.numeroAsistentesReal };
+    } catch (e) {
+      console.error(e);
+      return { message: e.message, data: null };
+    }
+  }
 
   async crearReservacion(createDto: CreateReservacioneDto) {
     console.log('=== crearReservacion llamado con DTO:', createDto);
@@ -30,15 +50,16 @@ export class ReservacionesService {
       horaFin,
       asistentes,
       observaciones,
+      idTecnicoAsignado,
     } = createDto;
 
     try {
-      console.log(
-        '   ↪️ insertando en la BD remota, preparación de fechas/hora...',
-      );
       const horaInicioDate = new Date(`1970-01-01T${horaInicio}:00`);
       const horaFinDate = new Date(`1970-01-01T${horaFin}:00`);
 
+      const tecnico = await this.prisma.tecnicos.findUnique({
+        where: { id: idTecnicoAsignado },
+      });
       const usuario = await this.prisma.usuarios.findUnique({
         where: { id: idUsuario },
       });
@@ -48,6 +69,8 @@ export class ReservacionesService {
       if (usuario) {
         await this.enviarConfirmacionEmail(usuario, createDto, sala);
       }
+      if (!tecnico || !sala || !usuario)
+        throw new Error('Error con la consulta');
 
       const nueva = await this.prisma.reservaciones.create({
         data: {
@@ -60,6 +83,7 @@ export class ReservacionesService {
           horaInicio: horaInicioDate, // guarda solo hora (Time)
           horaFin: horaFinDate,
           numeroAsistentesEstimado: asistentes,
+          numeroAsistentesReal: asistentes, // CAMBIAR: SOLO ES TEMPORAL PARA PROBAR
           observaciones: observaciones ?? null,
           // ---------------------------------------------
           // El resto de campos (idTecnicoAsignado, numeroAsistentesReal,
@@ -68,13 +92,8 @@ export class ReservacionesService {
           // ---------------------------------------------
         },
       });
-      console.log('   ✅ Insert exitoso en BD remota:', nueva);
       return nueva;
     } catch (e) {
-      console.error(
-        '   ❌ Error al crear reservación en BD remota:',
-        e.message,
-      );
       throw new BadRequestException(
         'No se pudo crear la reservación: ' + e.message,
       );
@@ -95,8 +114,13 @@ export class ReservacionesService {
         console.log('⚠️ Resend no está configurado. Saltando envío de email.');
         return;
       }
-      
-      const templatePath = path.join(__dirname, '..', 'template', 'correo_cicese_formato.hbs');
+
+      const templatePath = path.join(
+        __dirname,
+        '..',
+        'template',
+        'correo_cicese_formato.hbs',
+      );
       console.log('📧 Intentando leer template desde:', templatePath);
 
       const templateHtml = fs.readFileSync(templatePath, 'utf8');
@@ -137,10 +161,11 @@ export class ReservacionesService {
   async enviarCorreoPrueba() {
     if (!this.resend) {
       return {
-        message: 'Resend no está configurado. No se pudo enviar el correo de prueba.',
+        message:
+          'Resend no está configurado. No se pudo enviar el correo de prueba.',
       };
     }
-    
+
     this.resend.emails.send({
       from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
       to: 'gonzalez372576@uabc.edu.mx',
@@ -169,6 +194,8 @@ export class ReservacionesService {
         idSala: true,
         fechaEvento: true,
         estadoSolicitud: true,
+        horaInicio: true,
+        horaFin: true,
       },
       where: {
         idUsuario: idUsuario,
@@ -201,6 +228,24 @@ export class ReservacionesService {
         nombreSala: sala ? sala.nombreSala : 'Sala no encontrada',
         fechaEvento: reservacion.fechaEvento,
         estadoSolicitud: reservacion.estadoSolicitud,
+        horaInicio: (() => {
+          const date =
+            reservacion.horaInicio instanceof Date
+              ? reservacion.horaInicio
+              : new Date(reservacion.horaInicio);
+          const hours = String(date.getUTCHours()).padStart(2, '0');
+          const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+          return `${hours}:${minutes}`;
+        })(),
+        horaFin: (() => {
+          const date =
+            reservacion.horaFin instanceof Date
+              ? reservacion.horaFin
+              : new Date(reservacion.horaFin);
+          const hours = String(date.getUTCHours()).padStart(2, '0');
+          const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+          return `${hours}:${minutes}`;
+        })(),
       };
     });
 
@@ -212,6 +257,8 @@ export class ReservacionesService {
       salaEvento: reservacion.nombreSala,
       fechaEvento: reservacion.fechaEvento,
       estadoActual: reservacion.estadoSolicitud,
+      horaInicio: reservacion.horaInicio,
+      horaFin: reservacion.horaFin,
     }));
   }
 

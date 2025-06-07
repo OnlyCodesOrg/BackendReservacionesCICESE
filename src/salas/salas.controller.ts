@@ -5,10 +5,8 @@ import {
   Body,
   Param,
   Query,
-  ParseIntPipe,
-  NotFoundException,
-  Patch,
   BadRequestException,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -25,26 +23,120 @@ import { HistorialSalasResponseDto } from './dto/historial-salas-response.dto';
 import { HistorialUsoSalaResponseDto } from './dto/historial-uso-sala-response.dto';
 import { DetalleEventoResponseDto } from './dto/detalle-evento-response.dto';
 import { InventarioSalaResponseDto } from './dto/inventario-sala.dto';
-import { ActualizarInventarioSalaDto, ActualizarInventarioResponseDto } from './dto/actualizar-inventario.dto';
+import {
+  ActualizarInventarioResponseDto,
+  ActualizarInventarioSalaDto,
+} from './dto/actualizar-inventario.dto';
+import { listarSalas } from './dto/listar-equipo.dto';
+import { respuestaGenerica } from './dto/respuesta-generica.dto';
+import { actualizarEquipo } from './dto/actualizar-equipo.dto';
 
 @ApiTags('salas')
 @Controller('salas')
 export class SalasController {
-  constructor(private readonly salasService: SalasService) {}
+  constructor(private readonly salasService: SalasService) { }
 
   /**
    * Obtiene la lista de salas disponibles dentro del rango de fechas
-   * @param fechas {inicio:Date, fin:Date, (Opcional) salasSeleccionadas?:[id,id,id...]}
    * @returns [salas]
    */
   @Post('listar')
-  async ListarSalas(@Body() data) {
-    const res = this.salasService.ObtenerSalas(
-      new Date(data.inicio),
-      new Date(data.fin),
+  @ApiOperation({
+    description: 'Obtiene la lista de salas con un rango de fechas definidas',
+  })
+  @ApiBody({
+    type: listarSalas,
+  })
+  @ApiResponse({
+    status: 200,
+    type: respuestaGenerica,
+  })
+  @ApiResponse({
+    status: 400,
+    type: respuestaGenerica,
+  })
+  async ListarSalas(@Body() data: any) {
+    return await this.salasService.ObtenerSalasDisponiblesPorHora(
+      data.fecha,
+      data.horaInicio,
+      data.horaFin,
       data.salasSeleccionadas,
     );
-    return { message: 'ok', data: res };
+  }
+
+  /**
+   * Obtiene la sala por id
+   * @param id Id de la sala
+   * @returns {message:error|| ok, data:null||sala}
+   */
+
+  @Get('obtener/:id')
+  @ApiOperation({
+    description: 'Obtiene una sala por Id',
+  })
+  @ApiParam({
+    name:"id",
+    description:"id de la sala"
+  })
+  @ApiResponse({
+    status: 200,
+    type: respuestaGenerica,
+  })
+  @ApiResponse({
+    status: 400,
+    type: respuestaGenerica,
+  })
+  async obtenerSala(@Param('id', ParseIntPipe) id: number) {
+    return await this.salasService.ObtenerSalaPorId(id);
+  }
+
+  /**
+   * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data,
+   * donde data puede ser null en caso de no encontrar algo
+   * @param idSala id de la sala, enviado desde la URL
+   * @returns {message:"ok"|| error encontrad,data:[{equipo, tipoEquipo},{equipo, tipoEquipo},{equipo, tipoEquipo}] || null }
+   */
+  @ApiOperation({
+    description: 'Obtiene la lista de equipos que tenga dicha sala',
+  })
+  @ApiResponse({
+    status: 200,
+    type: respuestaGenerica,
+  })
+  @ApiResponse({
+    status: 400,
+    type: respuestaGenerica,
+  })
+  @Get('equipo/:idSala')
+  async ObtenerEquipoDeSala(@Param('idSala', ParseIntPipe) idSala: number) {
+    return await this.salasService.ObtenerEquipoDeSala(idSala);
+  }
+
+  /**
+   * Actualiza los atributos del equipo,
+   * @param nuevoEquipo Un json con el id del equipo y los atributos a actualizar
+   * @returns {message:ok || error, data:resultado||null}
+   */
+  @Post('equipo/actualizar')
+  @ApiOperation({
+    summary: 'Actualizar equipo',
+  })
+  @ApiBody({
+    description: 'Necesita el id del equipo y los atributos a actualizar',
+    type: actualizarEquipo,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Responde con un mensaje y la data',
+    type: respuestaGenerica,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Responde con un mensaje y la data',
+    type: respuestaGenerica,
+  })
+  async ActualizarEquipo(@Body() data: any) {
+    return await this.salasService.ActualizarEquipoDeSala(data);
   }
 
   /**
@@ -120,14 +212,42 @@ export class SalasController {
     };
   }
 
-  async consultarDisponibilidadSala(@Body() fechaActual: Date) {
-    const disponibilidad =
-      await this.salasService.consultarDisponibilidadSala(fechaActual);
-    return {
-      success: true,
-      message: 'Disponibilidad de sala consultada exitosamente',
-      data: disponibilidad,
-    };
+  /**
+   * Consulta la disponibilidad de una sala para una fecha específica
+   * @param body { fechaActual: string }
+   * @returns Disponibilidad de la sala
+   */
+
+  @Get('consultar-disponibilidad')
+  @ApiOperation({
+    summary: 'Consultar disponibilidad de sala',
+    description:
+      'Consulta la disponibilidad de una sala para la fecha actual.\n El dia inicia a las 08:00 y termina  a las 20:00',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Disponibilidad de sala consultada exitosamente',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          idSala: { type: 'number', description: 'ID de la sala' },
+          nombreSala: { type: 'string', description: 'Nombre de la sala' },
+          disponibilidad: {
+            type: 'boolean',
+            description:
+              'Indica si la sala tiene disponibilidad durante el dia',
+          },
+        },
+      },
+    },
+  })
+  async consultarDisponibilidadSala() {
+    const hoy = new Date(); //Usa la fecha actual
+    const fechaFormateada = hoy.toISOString().split('T')[0]; // Formatea a YYYY-MM-DD
+
+    return await this.salasService.consultarDisponibilidadSala(fechaFormateada);
   }
 
   /**
@@ -242,7 +362,8 @@ export class SalasController {
   @Post('inventario/:idSala')
   @ApiOperation({
     summary: 'Actualizar inventario de sala',
-    description: 'Permite a un técnico modificar el inventario de una sala específica',
+    description:
+      'Permite a un técnico modificar el inventario de una sala específica',
   })
   @ApiParam({
     name: 'idSala',
@@ -264,12 +385,17 @@ export class SalasController {
     @Body() actualizarInventarioDto: ActualizarInventarioSalaDto,
   ): Promise<ActualizarInventarioResponseDto> {
     const id = parseInt(idSala);
-    
+
     // Verificar que el ID de la sala en el path coincide con el del body
-    if (actualizarInventarioDto.idSala && actualizarInventarioDto.idSala !== id) {
-      throw new BadRequestException('El ID de la sala en el path no coincide con el ID en el body');
+    if (
+      actualizarInventarioDto.idSala &&
+      actualizarInventarioDto.idSala !== id
+    ) {
+      throw new BadRequestException(
+        'El ID de la sala en el path no coincide con el ID en el body',
+      );
     }
-    
+
     const resultado = await this.salasService.actualizarInventarioSala(
       id,
       actualizarInventarioDto.elementos,
@@ -320,6 +446,48 @@ export class SalasController {
       success: true,
       message: 'Detalle del evento obtenido exitosamente',
       data: detalle,
+    };
+  }
+
+  /**
+   * Obtiene información de una sala específica
+   * @param idSala ID de la sala
+   * @returns Información completa de la sala
+   */
+  @Get(':idSala')
+  @ApiOperation({
+    summary: 'Obtener información de sala',
+    description: 'Obtiene la información completa de una sala específica',
+  })
+  @ApiParam({
+    name: 'idSala',
+    description: 'ID de la sala',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Información de la sala obtenida exitosamente',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Sala no encontrada',
+  })
+  async obtenerSalaPorId(@Param('idSala') idSala: string) {
+    const id = parseInt(idSala);
+    const sala = await this.salasService.obtenerSalaPorId(id);
+
+    if (!sala) {
+      return {
+        success: false,
+        message: 'Sala no encontrada',
+        data: null,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Sala obtenida exitosamente',
+      data: sala,
     };
   }
 }

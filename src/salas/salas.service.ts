@@ -1,5 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import {
   SalaDisponible,
   ConflictoHorario,
@@ -8,69 +11,146 @@ import {
   HistorialUsoSala,
   DetalleEventoSala,
   disponibilidadDeSala,
+  Sala,
 } from '../types';
+
 import { ReservacionesService } from 'src/reservaciones/reservaciones.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
+import { actualizarEquipo } from './dto/actualizar-equipo.dto';
+import { respuestaGenerica } from './dto/respuesta-generica.dto';
+import { Salas } from 'generated/prisma';
 
 @Injectable()
 export class SalasService {
   constructor(
     private prisma: PrismaService,
     private reservacionesService: ReservacionesService,
-  ) {}
+  ) { }
 
   /**
-   * Obtiene las salas disponibles dentro de un rango de fechas
-   * @param fechaInicio
-   * @param fechaFin
-   * @param salasSeleccionadas
-   * @returns La lista de salas disponibles dentro del rango de tiempo
+   *
+   * @param fecha DIA del evento
+   * @param horaInicio Hora en formato HH:MM
+   * @param horaFin Hora en formato HH:MM
+   * @param salasSeleccionadas Array opcional de salas seleccionadas [id,id]
+   * @returns {message:'mensaje de error || ok, dat:'Un array con las salas disponibles' || null}
    */
-  ObtenerSalas(
-    fechaInicio: Date,
-    fechaFin: Date,
+  async ObtenerSalasDisponiblesPorHora(
+    fecha: string,
+    horaInicio: string,
+    horaFin: string,
     salasSeleccionadas?: number[],
   ) {
-    const sala1: SalaDisponible = {
-      id: 1,
-      inicio: new Date('2025-05-10T00:00:00Z'),
-      fin: new Date('2025-05-11T00:00:00Z'),
-    };
-    const sala2: SalaDisponible = {
-      id: 2,
-      inicio: new Date('2025-06-10T00:00:00Z'),
-      fin: new Date('2025-06-11T00:00:00Z'),
-    };
-    const sala3: SalaDisponible = {
-      id: 3,
-      inicio: new Date('2025-06-20T00:00:00Z'),
-      fin: new Date('2025-06-21T00:00:00Z'),
-    };
-    const salas = [sala1, sala2, sala3];
+    try {
+      const dia = new Date(`${fecha}T00:00:00.000Z`);
+      const horaInicioUTC = new Date(`1970-01-01T${horaInicio}:00.000Z`);
+      const horaFinUTC = new Date(`1970-01-01T${horaFin}:00.000Z`);
 
-    let salasDisponibles;
-    // Si hay salas seleccionadas por el usuario
-    if (salasSeleccionadas && salasSeleccionadas.length > 0) {
-      // Filtrar salas dentro del rango
-      salasDisponibles = salas.filter(
-        (current) => current.inicio >= fechaInicio && current.fin <= fechaFin,
-      );
-
-      // Filtrar salas seleccionadas
-      let salasFiltradas = new Array<any>();
-      salasSeleccionadas.forEach((currentSelected) => {
-        salasDisponibles.forEach((currentDisp) => {
-          if (currentSelected === currentDisp.id) {
-            salasFiltradas.push(currentDisp);
-          }
-        });
+      // Obtener reservaciones de ese día
+      const resPorDia = await this.prisma.reservaciones.findMany({
+        where: {
+          fechaEvento: dia,
+          ...(salasSeleccionadas?.length
+            ? { idSala: { in: salasSeleccionadas } }
+            : {}),
+        },
       });
-      return salasFiltradas;
-    } else {
-      salasDisponibles = salas.filter(
-        (current) => current.inicio >= fechaInicio && current.fin <= fechaFin,
-      );
-      return salasDisponibles;
+
+      // Filtrar reservaciones que se solapan con el rango de horas dado
+      const resPorHora = resPorDia.filter((res) => {
+        const inicio = res.horaInicio;
+        const fin = res.horaFin;
+        return (
+          inicio.getTime() < horaFinUTC.getTime() && // Empieza antes de que termine
+          fin.getTime() > horaInicioUTC.getTime() // Termina después de que empieza
+        );
+      });
+
+      const salasOcupadas = resPorHora.map((current) => current.idSala);
+
+      const salasDisponibles = await this.prisma.salas.findMany({
+        where: {
+          AND: [
+            ...(salasSeleccionadas?.length
+              ? [{ id: { in: salasSeleccionadas } }]
+              : []),
+            { id: { notIn: salasOcupadas } },
+          ],
+        },
+      });
+
+      return { message: 'ok', data: salasDisponibles };
+    } catch (e: any) {
+      console.error(e);
+      return { message: e.message, data: null };
+    }
+  }
+
+  /**
+   * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data,
+   * donde data puede ser null en caso de no encontrar algo
+   * @param idSala id de la sala
+   * @returns {message:"ok"|| error encontrad,data:[{equipo , detalles}] || null }
+   */
+  async ObtenerEquipoDeSala(idSala: number) {
+    try {
+      const equipo = await this.prisma.equiposSala.findMany({
+        where: { idSala: idSala },
+      });
+      if (!equipo) throw new Error('Equipo no encontrado. ', equipo);
+
+      const listaDeEquipo = await Promise.all(equipo.map(async (current) => {
+        const tipoEquipo = await this.prisma.tiposEquipo.findUnique({ where: { id: current.idTipoEquipo } })
+        return { equipo: current, detalles: tipoEquipo };
+      }));
+
+      return { message: 'ok', data: listaDeEquipo };
+    } catch (e) {
+      console.error(e.message);
+      return { message: e.message, data: null };
+    }
+  }
+
+  /**
+   * Obtiene la sala por id
+   * @param id Id de la sala
+   * @returns {message:error|| ok, data:null||sala}
+   */
+  async ObtenerSalaPorId(id: number) {
+    try {
+      const sala = await this.prisma.salas.findUnique({ where: { id: id } });
+      if (!sala) throw new Error("Sala no encontrada");
+      return { message: "ok", data: sala };
+    } catch (e) {
+      console.error(e);
+      return { message: e.message, data: null };
+    }
+  }
+
+  /**
+   * Actualiza los atributos del equipo
+   * @param nuevoEquipo El equipo con sus datos a actualizar
+   * @returns {message:ok || error, data:resultado||null}
+   */
+  async ActualizarEquipoDeSala(nuevoEquipo: actualizarEquipo) {
+    try {
+      const equipo = await this.prisma.equiposSala.findFirst({
+        where: { id: nuevoEquipo.id },
+      });
+      if (!equipo) throw new Error('Equipo no encontrado.');
+
+      const { id: _, ...equipoSinId } = nuevoEquipo;
+
+      const res = await this.prisma.equiposSala.update({
+        where: { id: equipo.id },
+        data: equipoSinId,
+      });
+      if (!res) throw new Error('Error al actualizar el equipo. ', res);
+      return { message: 'ok', data: res };
+    } catch (e) {
+      console.error(e.message);
+      return { message: e.message, data: null };
     }
   }
 
@@ -144,10 +224,38 @@ export class SalasService {
   ): boolean {
     return inicio1 < fin2 && fin1 > inicio2;
   }
-
-  async consultarDisponibilidadSala(diaActual: Date): Promise<any[]> {
+  /**
+   *
+   * @param diaActual Fecha del día actual para consultar disponibilidad
+   * @description Consulta la disponibilidad de las salas para un día específico.
+   * Retorna un arreglo con las salas y su estado de disponibilidad.
+   * @returns
+   */
+  async consultarDisponibilidadSala(diaActual: string): Promise<any[]> {
     const horaInicio = 8 * 60; //Convertir a minutos
-    const horaFin = 18 * 60;
+    const horaFin = 20 * 60;
+
+    // Validar y formatear la fecha correctamente
+    let fechaEvento: Date;
+    try {
+      // Verificar si el formato es válido (YYYY-MM-DD)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(diaActual)) {
+        throw new BadRequestException(
+          'Formato de fecha inválido. Utilice el formato YYYY-MM-DD',
+        );
+      }
+
+      fechaEvento = new Date(diaActual);
+
+      // Verificar que la fecha sea válida
+      if (isNaN(fechaEvento.getTime())) {
+        throw new BadRequestException('La fecha proporcionada no es válida');
+      }
+    } catch (error) {
+      throw new BadRequestException(
+        `Error al procesar la fecha: ${error.message}`,
+      );
+    }
 
     // Se obtienen todas las salas
     const salas = await this.prisma.salas.findMany();
@@ -155,7 +263,7 @@ export class SalasService {
     // Se obtienen todas las reservaciones del dia
     const reservacionesDia = await this.prisma.reservaciones.findMany({
       where: {
-        fechaEvento: diaActual,
+        fechaEvento: fechaEvento,
       },
     });
 
@@ -284,8 +392,10 @@ export class SalasService {
    * @param elementos Lista de elementos del inventario a actualizar
    * @returns Información de la sala actualizada
    */
-  async actualizarInventarioSala(idSala: number, elementos: ActualizarElementoInventarioDto[]) {
-
+  async actualizarInventarioSala(
+    idSala: number,
+    elementos: ActualizarElementoInventarioDto[],
+  ) {
     const sala = await this.prisma.salas.findUnique({
       where: { id: idSala },
       select: {
@@ -310,21 +420,26 @@ export class SalasService {
       'Borrador',
     ];
     const tiposEquipo = await this.prisma.tiposEquipo.findMany();
-    console.log('Tipos de equipo disponibles:', tiposEquipo.map(t => t.nombre));
-    
+    console.log(
+      'Tipos de equipo disponibles:',
+      tiposEquipo.map((t) => t.nombre),
+    );
+
     // Función para normalizar texto (eliminar acentos y convertir a minúsculas)
     const normalizar = (texto: string) => {
-      return texto.toLowerCase()
+      return texto
+        .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '');
     };
 
     // Asegurarse de que todos los elementos del inventario existen como tipos de equipo
     for (const elementoNombre of elementosInventario) {
-      const tipoExistente = tiposEquipo.find(tipo => 
-        normalizar(tipo.nombre) === normalizar(elementoNombre) ||
-        normalizar(tipo.nombre).includes(normalizar(elementoNombre)) ||
-        normalizar(elementoNombre).includes(normalizar(tipo.nombre))
+      const tipoExistente = tiposEquipo.find(
+        (tipo) =>
+          normalizar(tipo.nombre) === normalizar(elementoNombre) ||
+          normalizar(tipo.nombre).includes(normalizar(elementoNombre)) ||
+          normalizar(elementoNombre).includes(normalizar(tipo.nombre)),
       );
 
       if (!tipoExistente) {
@@ -340,26 +455,31 @@ export class SalasService {
 
     // Recargar los tipos de equipo después de posibles creaciones
     const tiposEquipoActualizados = await this.prisma.tiposEquipo.findMany();
-    
+
     for (const elemento of elementos) {
       // Verificar que el elemento está en la lista de elementos permitidos
-      const elementoPermitido = elementosInventario.find(e => 
-        normalizar(e) === normalizar(elemento.nombre)
+      const elementoPermitido = elementosInventario.find(
+        (e) => normalizar(e) === normalizar(elemento.nombre),
       );
-      
+
       if (!elementoPermitido) {
-        throw new BadRequestException(`El elemento '${elemento.nombre}' no está en la lista de elementos permitidos`);
+        throw new BadRequestException(
+          `El elemento '${elemento.nombre}' no está en la lista de elementos permitidos`,
+        );
       }
 
       // Buscar el tipo de equipo correspondiente
-      const tipoEquipo = tiposEquipoActualizados.find(tipo => 
-        normalizar(tipo.nombre) === normalizar(elemento.nombre) ||
-        normalizar(tipo.nombre).includes(normalizar(elemento.nombre)) ||
-        normalizar(elemento.nombre).includes(normalizar(tipo.nombre))
+      const tipoEquipo = tiposEquipoActualizados.find(
+        (tipo) =>
+          normalizar(tipo.nombre) === normalizar(elemento.nombre) ||
+          normalizar(tipo.nombre).includes(normalizar(elemento.nombre)) ||
+          normalizar(elemento.nombre).includes(normalizar(tipo.nombre)),
       );
-      
+
       if (!tipoEquipo) {
-        throw new NotFoundException(`Tipo de equipo '${elemento.nombre}' no encontrado`);
+        throw new NotFoundException(
+          `Tipo de equipo '${elemento.nombre}' no encontrado`,
+        );
       }
 
       const equipoExistente = await this.prisma.equiposSala.findFirst({
@@ -513,7 +633,6 @@ export class SalasService {
     const reservaciones = await this.prisma.reservaciones.findMany({
       where: {
         idSala: idSala,
-        estadoSolicitud: 'Aprobada',
       },
       include: {
         usuario: {
@@ -645,5 +764,21 @@ export class SalasService {
         }),
       ),
     };
+  }
+
+  /**
+   * Obtener la información de una sala en específico
+   * @param idSala ID de la sala
+   * @returns Información de la sala
+   */
+
+  async obtenerSalaPorId(idSala: number): Promise<Sala | null> {
+    const sala = await this.prisma.salas.findUnique({
+      where: { id: idSala },
+    });
+
+    if (!sala) return null;
+
+    return sala;
   }
 }
