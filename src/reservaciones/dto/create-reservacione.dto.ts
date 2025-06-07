@@ -30,6 +30,9 @@ export class CreateReservacioneDto {
   idUsuario: number;
   // El ID del usuario que hace la reservación. Lo tomas del JWT en el front.
 
+  @IsInt()
+  idTecnicoAsignado: number;
+
   @IsString()
   nombreEvento: string;
   // El título/nombre que ponga el usuario para su evento.
@@ -37,6 +40,7 @@ export class CreateReservacioneDto {
   @IsInt()
   idSala: number;
 
+  @IsInt()
   @IsString()
   @IsIn(TIPOS_EVENTO, {
     message: `tipoEvento debe ser uno de: ${TIPOS_EVENTO.join(', ')}`,

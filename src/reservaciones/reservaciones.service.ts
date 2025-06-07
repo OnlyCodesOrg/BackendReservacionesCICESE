@@ -50,15 +50,16 @@ export class ReservacionesService {
       horaFin,
       asistentes,
       observaciones,
+      idTecnicoAsignado,
     } = createDto;
 
     try {
-      console.log(
-        '   ↪️ insertando en la BD remota, preparación de fechas/hora...',
-      );
       const horaInicioDate = new Date(`1970-01-01T${horaInicio}:00`);
       const horaFinDate = new Date(`1970-01-01T${horaFin}:00`);
 
+      const tecnico = await this.prisma.tecnicos.findUnique({
+        where: { id: idTecnicoAsignado },
+      });
       const usuario = await this.prisma.usuarios.findUnique({
         where: { id: idUsuario },
       });
@@ -68,6 +69,8 @@ export class ReservacionesService {
       if (usuario) {
         await this.enviarConfirmacionEmail(usuario, createDto, sala);
       }
+      if (!tecnico || !sala || !usuario)
+        throw new Error('Error con la consulta');
 
       const nueva = await this.prisma.reservaciones.create({
         data: {
@@ -80,6 +83,7 @@ export class ReservacionesService {
           horaInicio: horaInicioDate, // guarda solo hora (Time)
           horaFin: horaFinDate,
           numeroAsistentesEstimado: asistentes,
+          numeroAsistentesReal: asistentes, // CAMBIAR: SOLO ES TEMPORAL PARA PROBAR
           observaciones: observaciones ?? null,
           // ---------------------------------------------
           // El resto de campos (idTecnicoAsignado, numeroAsistentesReal,
@@ -88,13 +92,8 @@ export class ReservacionesService {
           // ---------------------------------------------
         },
       });
-      console.log('   ✅ Insert exitoso en BD remota:', nueva);
       return nueva;
     } catch (e) {
-      console.error(
-        '   ❌ Error al crear reservación en BD remota:',
-        e.message,
-      );
       throw new BadRequestException(
         'No se pudo crear la reservación: ' + e.message,
       );
@@ -195,6 +194,8 @@ export class ReservacionesService {
         idSala: true,
         fechaEvento: true,
         estadoSolicitud: true,
+        horaInicio: true,
+        horaFin: true,
       },
       where: {
         idUsuario: idUsuario,
@@ -227,6 +228,24 @@ export class ReservacionesService {
         nombreSala: sala ? sala.nombreSala : 'Sala no encontrada',
         fechaEvento: reservacion.fechaEvento,
         estadoSolicitud: reservacion.estadoSolicitud,
+        horaInicio: (() => {
+          const date =
+            reservacion.horaInicio instanceof Date
+              ? reservacion.horaInicio
+              : new Date(reservacion.horaInicio);
+          const hours = String(date.getUTCHours()).padStart(2, '0');
+          const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+          return `${hours}:${minutes}`;
+        })(),
+        horaFin: (() => {
+          const date =
+            reservacion.horaFin instanceof Date
+              ? reservacion.horaFin
+              : new Date(reservacion.horaFin);
+          const hours = String(date.getUTCHours()).padStart(2, '0');
+          const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+          return `${hours}:${minutes}`;
+        })(),
       };
     });
 
@@ -238,6 +257,8 @@ export class ReservacionesService {
       salaEvento: reservacion.nombreSala,
       fechaEvento: reservacion.fechaEvento,
       estadoActual: reservacion.estadoSolicitud,
+      horaInicio: reservacion.horaInicio,
+      horaFin: reservacion.horaFin,
     }));
   }
 

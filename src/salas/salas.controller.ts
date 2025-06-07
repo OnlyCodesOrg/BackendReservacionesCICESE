@@ -212,14 +212,42 @@ export class SalasController {
     };
   }
 
-  async consultarDisponibilidadSala(@Body() fechaActual: Date) {
-    const disponibilidad =
-      await this.salasService.consultarDisponibilidadSala(fechaActual);
-    return {
-      success: true,
-      message: 'Disponibilidad de sala consultada exitosamente',
-      data: disponibilidad,
-    };
+  /**
+   * Consulta la disponibilidad de una sala para una fecha específica
+   * @param body { fechaActual: string }
+   * @returns Disponibilidad de la sala
+   */
+
+  @Get('consultar-disponibilidad')
+  @ApiOperation({
+    summary: 'Consultar disponibilidad de sala',
+    description:
+      'Consulta la disponibilidad de una sala para la fecha actual.\n El dia inicia a las 08:00 y termina  a las 20:00',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Disponibilidad de sala consultada exitosamente',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          idSala: { type: 'number', description: 'ID de la sala' },
+          nombreSala: { type: 'string', description: 'Nombre de la sala' },
+          disponibilidad: {
+            type: 'boolean',
+            description:
+              'Indica si la sala tiene disponibilidad durante el dia',
+          },
+        },
+      },
+    },
+  })
+  async consultarDisponibilidadSala() {
+    const hoy = new Date(); //Usa la fecha actual
+    const fechaFormateada = hoy.toISOString().split('T')[0]; // Formatea a YYYY-MM-DD
+
+    return await this.salasService.consultarDisponibilidadSala(fechaFormateada);
   }
 
   /**
@@ -418,6 +446,48 @@ export class SalasController {
       success: true,
       message: 'Detalle del evento obtenido exitosamente',
       data: detalle,
+    };
+  }
+
+  /**
+   * Obtiene información de una sala específica
+   * @param idSala ID de la sala
+   * @returns Información completa de la sala
+   */
+  @Get(':idSala')
+  @ApiOperation({
+    summary: 'Obtener información de sala',
+    description: 'Obtiene la información completa de una sala específica',
+  })
+  @ApiParam({
+    name: 'idSala',
+    description: 'ID de la sala',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Información de la sala obtenida exitosamente',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Sala no encontrada',
+  })
+  async obtenerSalaPorId(@Param('idSala') idSala: string) {
+    const id = parseInt(idSala);
+    const sala = await this.salasService.obtenerSalaPorId(id);
+
+    if (!sala) {
+      return {
+        success: false,
+        message: 'Sala no encontrada',
+        data: null,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Sala obtenida exitosamente',
+      data: sala,
     };
   }
 }

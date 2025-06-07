@@ -61,8 +61,4 @@ jobs:
           imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
           targetPort: 3000
           ingress: external
-          environmentVariables: |
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
-            NODE_ENV=production
+          environmentVariables: DATABASE_URL="${{ secrets.DATABASE_URL }}" JWT_SECRET="${{ secrets.JWT_SECRET }}" RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" NODE_ENV="production"

@@ -11,7 +11,9 @@ import {
   HistorialUsoSala,
   DetalleEventoSala,
   disponibilidadDeSala,
+  Sala,
 } from '../types';
+
 import { ReservacionesService } from 'src/reservaciones/reservaciones.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
@@ -222,10 +224,38 @@ export class SalasService {
   ): boolean {
     return inicio1 < fin2 && fin1 > inicio2;
   }
-
-  async consultarDisponibilidadSala(diaActual: Date): Promise<any[]> {
+  /**
+   *
+   * @param diaActual Fecha del día actual para consultar disponibilidad
+   * @description Consulta la disponibilidad de las salas para un día específico.
+   * Retorna un arreglo con las salas y su estado de disponibilidad.
+   * @returns
+   */
+  async consultarDisponibilidadSala(diaActual: string): Promise<any[]> {
     const horaInicio = 8 * 60; //Convertir a minutos
-    const horaFin = 18 * 60;
+    const horaFin = 20 * 60;
+
+    // Validar y formatear la fecha correctamente
+    let fechaEvento: Date;
+    try {
+      // Verificar si el formato es válido (YYYY-MM-DD)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(diaActual)) {
+        throw new BadRequestException(
+          'Formato de fecha inválido. Utilice el formato YYYY-MM-DD',
+        );
+      }
+
+      fechaEvento = new Date(diaActual);
+
+      // Verificar que la fecha sea válida
+      if (isNaN(fechaEvento.getTime())) {
+        throw new BadRequestException('La fecha proporcionada no es válida');
+      }
+    } catch (error) {
+      throw new BadRequestException(
+        `Error al procesar la fecha: ${error.message}`,
+      );
+    }
 
     // Se obtienen todas las salas
     const salas = await this.prisma.salas.findMany();
@@ -233,7 +263,7 @@ export class SalasService {
     // Se obtienen todas las reservaciones del dia
     const reservacionesDia = await this.prisma.reservaciones.findMany({
       where: {
-        fechaEvento: diaActual,
+        fechaEvento: fechaEvento,
       },
     });
 
@@ -603,7 +633,6 @@ export class SalasService {
     const reservaciones = await this.prisma.reservaciones.findMany({
       where: {
         idSala: idSala,
-        estadoSolicitud: 'Aprobada',
       },
       include: {
         usuario: {
@@ -735,5 +764,21 @@ export class SalasService {
         }),
       ),
     };
+  }
+
+  /**
+   * Obtener la información de una sala en específico
+   * @param idSala ID de la sala
+   * @returns Información de la sala
+   */
+
+  async obtenerSalaPorId(idSala: number): Promise<Sala | null> {
+    const sala = await this.prisma.salas.findUnique({
+      where: { id: idSala },
+    });
+
+    if (!sala) return null;
+
+    return sala;
   }
 }
