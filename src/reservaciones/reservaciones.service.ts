@@ -20,15 +20,17 @@ export class ReservacionesService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * 
-   * @param idReservacion 
+   *
+   * @param idReservacion
    * @returns el numero de asistencia real
    */
   async ObtenerAsistenciasSala(idReservacion: number) {
     try {
-      const asistencias = await this.prisma.reservaciones.findUnique({ where: { id: idReservacion } });
-      if (!asistencias) throw new Error("Error con la consulta");
-      return { message: "ok", data: asistencias.numeroAsistentesReal };
+      const asistencias = await this.prisma.reservaciones.findUnique({
+        where: { id: idReservacion },
+      });
+      if (!asistencias) throw new Error('Error con la consulta');
+      return { message: 'ok', data: asistencias.numeroAsistentesReal };
     } catch (e) {
       console.error(e);
       return { message: e.message, data: null };
@@ -48,13 +50,16 @@ export class ReservacionesService {
       horaFin,
       asistentes,
       observaciones,
+      idTecnicoAsignado,
     } = createDto;
 
     try {
-      
       const horaInicioDate = new Date(`1970-01-01T${horaInicio}:00`);
       const horaFinDate = new Date(`1970-01-01T${horaFin}:00`);
 
+      const tecnico = await this.prisma.tecnicos.findUnique({
+        where: { id: idTecnicoAsignado },
+      });
       const usuario = await this.prisma.usuarios.findUnique({
         where: { id: idUsuario },
       });
@@ -64,6 +69,8 @@ export class ReservacionesService {
       if (usuario) {
         await this.enviarConfirmacionEmail(usuario, createDto, sala);
       }
+      if (!tecnico || !sala || !usuario)
+        throw new Error('Error con la consulta');
 
       const nueva = await this.prisma.reservaciones.create({
         data: {
@@ -76,6 +83,7 @@ export class ReservacionesService {
           horaInicio: horaInicioDate, // guarda solo hora (Time)
           horaFin: horaFinDate,
           numeroAsistentesEstimado: asistentes,
+          numeroAsistentesReal: asistentes, // CAMBIAR: SOLO ES TEMPORAL PARA PROBAR
           observaciones: observaciones ?? null,
           // ---------------------------------------------
           // El resto de campos (idTecnicoAsignado, numeroAsistentesReal,

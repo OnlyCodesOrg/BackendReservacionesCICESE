@@ -42,7 +42,7 @@ export class SalasController {
    */
   @Post('listar')
   @ApiOperation({
-    description: 'Obtiene la lista de salas con un rango de fechas definidas',
+    description: 'Obtiene la lista de salas disponibles y ocupadas de un dia',
   })
   @ApiBody({
     type: listarSalas,
@@ -55,20 +55,44 @@ export class SalasController {
     status: 400,
     type: respuestaGenerica,
   })
-  async ListarSalas(@Body() data: listarSalas) {
-    const res = this.salasService.ObtenerSalas(
-      new Date(data.inicioFecha),
-      new Date(data.finFecha),
+  async ListarSalas(@Body() data: any) {
+    return await this.salasService.ObtenerSalasDisponiblesPorHora(
+      data.fecha,
       data.salasSeleccionadas,
     );
-    return { message: 'ok', data: res };
+  }
+
+  /**
+   * Obtiene la sala por id
+   * @param id Id de la sala
+   * @returns {message:error|| ok, data:null||sala}
+   */
+
+  @Get('obtener/:id')
+  @ApiOperation({
+    description: 'Obtiene una sala por Id',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'id de la sala',
+  })
+  @ApiResponse({
+    status: 200,
+    type: respuestaGenerica,
+  })
+  @ApiResponse({
+    status: 400,
+    type: respuestaGenerica,
+  })
+  async obtenerSala(@Param('id', ParseIntPipe) id: number) {
+    return await this.salasService.ObtenerSalaPorId(id);
   }
 
   /**
    * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data,
    * donde data puede ser null en caso de no encontrar algo
    * @param idSala id de la sala, enviado desde la URL
-   * @returns {message:"ok"|| error encontrad,data:[equipos] || null }
+   * @returns {message:"ok"|| error encontrad,data:[{equipo, tipoEquipo},{equipo, tipoEquipo},{equipo, tipoEquipo}] || null }
    */
   @ApiOperation({
     description: 'Obtiene la lista de equipos que tenga dicha sala',
@@ -93,24 +117,33 @@ export class SalasController {
    */
   @Post('equipo/actualizar')
   @ApiOperation({
-    summary: 'Actualizar equipo',
+    summary:
+      'Actualiza el equipo de una sala en especifico, actualiza campos como nombre, cantidad o estado',
   })
   @ApiBody({
-    description: 'Necesita el id del equipo y los atributos a actualizar',
+    description:
+      'Necesita el id del equipo y los atributos a actualizar, cada atributo es opcional',
     type: actualizarEquipo,
   })
   @ApiResponse({
     status: 200,
-    description: 'Responde con un mensaje y la data',
+    description:
+      'Responde con un mensaje y la data que es el equipo actualizado o el equipo y el tipoEquipo actualizado',
     type: respuestaGenerica,
   })
   @ApiResponse({
     status: 400,
-    description: 'Responde con un mensaje y la data',
+    description:
+      'Responde con un mensaje de error y en la data retorna un Null',
     type: respuestaGenerica,
   })
   async ActualizarEquipo(@Body() data: any) {
-    return await this.salasService.ActualizarEquipoDeSala(data);
+    return await this.salasService.ActualizarEquipoDeSala(
+      data.id,
+      data.nombre,
+      data.cantidad,
+      data.estado,
+    );
   }
 
   /**
@@ -186,14 +219,42 @@ export class SalasController {
     };
   }
 
-  async consultarDisponibilidadSala(@Body() fechaActual: Date) {
-    const disponibilidad =
-      await this.salasService.consultarDisponibilidadSala(fechaActual);
-    return {
-      success: true,
-      message: 'Disponibilidad de sala consultada exitosamente',
-      data: disponibilidad,
-    };
+  /**
+   * Consulta la disponibilidad de una sala para una fecha específica
+   * @param body { fechaActual: string }
+   * @returns Disponibilidad de la sala
+   */
+
+  @Get('consultar-disponibilidad')
+  @ApiOperation({
+    summary: 'Consultar disponibilidad de sala',
+    description:
+      'Consulta la disponibilidad de una sala para la fecha actual.\n El dia inicia a las 08:00 y termina  a las 20:00',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Disponibilidad de sala consultada exitosamente',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          idSala: { type: 'number', description: 'ID de la sala' },
+          nombreSala: { type: 'string', description: 'Nombre de la sala' },
+          disponibilidad: {
+            type: 'boolean',
+            description:
+              'Indica si la sala tiene disponibilidad durante el dia',
+          },
+        },
+      },
+    },
+  })
+  async consultarDisponibilidadSala() {
+    const hoy = new Date(); //Usa la fecha actual
+    const fechaFormateada = hoy.toISOString().split('T')[0]; // Formatea a YYYY-MM-DD
+
+    return await this.salasService.consultarDisponibilidadSala(fechaFormateada);
   }
 
   /**
