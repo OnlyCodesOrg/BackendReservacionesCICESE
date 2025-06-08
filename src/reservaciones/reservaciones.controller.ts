@@ -7,11 +7,13 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
 } from '@nestjs/common';
 import { ReservacionesService } from './reservaciones.service';
 import { CreateReservacioneDto } from './dto/create-reservacione.dto';
 import { ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { respuestaGenerica } from 'src/salas/dto/respuesta-generica.dto';
+import { UpdateReservacioneDto } from './dto/update-reservacione.dto';
 
 @Controller('reservaciones')
 export class ReservacionesController {
@@ -262,5 +264,10 @@ export class ReservacionesController {
   async reservacionesAnteriores(@Param('idUsuario') idUsuario: string) {
     const id = parseInt(idUsuario, 10);
     return await this.reservacionesService.reservacionesAnteriores(id);
+  }
+
+  @Patch('/modificar')
+  async modificarReservacion(@Body() reservacion: UpdateReservacioneDto) {
+    return await this.reservacionesService.actualizarReservacion(reservacion);
   }
 }

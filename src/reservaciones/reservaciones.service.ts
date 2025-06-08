@@ -12,6 +12,7 @@ import * as Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Resend } from 'resend';
+import { UpdateReservacioneDto } from './dto/update-reservacione.dto';
 @Injectable()
 export class ReservacionesService {
   private resend = process.env.RESEND_API_KEY
@@ -291,6 +292,68 @@ export class ReservacionesService {
       observaciones: reservaciones.observaciones,
       fechaCreacion: reservaciones.fechaCreacionSolicitud,
       fechaModificacion: reservaciones.fechaUltimaModificacion,
+    };
+  }
+
+  /**
+   * @Description Actualiza una reservación existente.
+   * @param numeroSolicitud
+   * @param reservacionDto
+   * @returns
+   */
+  async actualizarReservacion(reservacionDto: UpdateReservacioneDto) {
+    if (!reservacionDto.numeroReservacion) {
+      throw new BadRequestException(
+        'El número de reservación es requerido para actualizar',
+      );
+    }
+
+    const actualizado = await this.prisma.reservaciones.update({
+      where: {
+        numeroReservacion: reservacionDto.numeroReservacion,
+      },
+      data: {
+        nombreEvento: reservacionDto.nombreEvento,
+        idSala: reservacionDto.idSala,
+        idUsuario: reservacionDto.idUsuario,
+        tipoEvento: reservacionDto.tipoEvento as TipoEvento,
+        ...(reservacionDto.fechaEvento
+          ? { fechaEvento: new Date(reservacionDto.fechaEvento) }
+          : {}),
+        ...(reservacionDto.horaInicio
+          ? {
+              horaInicio: new Date(
+                `1970-01-01T${reservacionDto.horaInicio}:00`,
+              ),
+            }
+          : {}),
+        ...(reservacionDto.horaFin
+          ? { horaFin: new Date(`1970-01-01T${reservacionDto.horaFin}:00`) }
+          : {}),
+        numeroAsistentesEstimado: reservacionDto.asistentes,
+        numeroAsistentesReal: reservacionDto.asistentes,
+        observaciones: reservacionDto.observaciones || null,
+        idTecnicoAsignado: reservacionDto.idTecnicoAsignado || null,
+        fechaUltimaModificacion: new Date(),
+        estadoSolicitud: reservacionDto.estadoSolicitud || 'Pendiente',
+        tipoRecurrencia: reservacionDto.tipoRecurrencia,
+        fechaFinRecurrencia: reservacionDto.fechaFinRecurrencia || null,
+        idUsuarioUltimaModificacion:
+          reservacionDto.idUsuarioUltimaModificacion || null,
+        linkReunionOnline: reservacionDto.linkReunion || null,
+        fallasRegistradas: reservacionDto.fallasRegistradas || null,
+      },
+    });
+
+    if (!actualizado) {
+      throw new HttpException(
+        'No se pudo actualizar la reservación',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return {
+      message: 'Reservación actualizada correctamente',
+      data: actualizado,
     };
   }
 }
