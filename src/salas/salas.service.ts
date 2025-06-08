@@ -27,7 +27,7 @@ export class SalasService {
   constructor(
     private prisma: PrismaService,
     private reservacionesService: ReservacionesService,
-  ) {}
+  ) { }
 
   /**
    *
@@ -274,7 +274,7 @@ export class SalasService {
     let fechaEvento: Date;
     try {
       // Verificar si el formato es válido (YYYY-MM-DD)
-      if (!/^\d{ 4 } -\d{ 2 } -\d{ 2 } $ /.test(diaActual)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(diaActual)) {
         throw new BadRequestException(
           'Formato de fecha inválido. Utilice el formato YYYY-MM-DD',
         );

@@ -265,7 +265,5 @@ export class ReservacionesController {
   }
 
   @Post('actualizar')
-  async ActualizarReservacion(@Body()data){
-
-  }
+  async ActualizarReservacion(@Body() data) {}
 }
