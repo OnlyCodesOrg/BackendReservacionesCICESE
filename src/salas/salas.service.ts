@@ -18,66 +18,80 @@ import { ReservacionesService } from 'src/reservaciones/reservaciones.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
 import { actualizarEquipo } from './dto/actualizar-equipo.dto';
+import { respuestaGenerica } from './dto/respuesta-generica.dto';
+import { EstadoEquipo, Salas } from 'generated/prisma';
+import { EquipoSala } from 'src/entities/EquipoSala.entity';
 
 @Injectable()
 export class SalasService {
   constructor(
     private prisma: PrismaService,
     private reservacionesService: ReservacionesService,
-  ) {}
+  ) { }
 
   /**
-   * Obtiene las salas disponibles dentro de un rango de fechas
-   * @param fechaInicio
-   * @param fechaFin
-   * @param salasSeleccionadas [id,id,id]
-   * @returns La lista de salas disponibles dentro del rango de tiempo
+   *
+   * @param fecha DIA del evento
+   * @param salasSeleccionadas Array opcional de salas seleccionadas [id,id]
+   * @returns {message:'mensaje de error || ok, dat:'Un array con las salas disponibles' || null}
    */
-  ObtenerSalas(
-    fechaInicio: Date,
-    fechaFin: Date,
+  async ObtenerSalasDisponiblesPorHora(
+    fecha: string,
     salasSeleccionadas?: number[],
   ) {
-    const sala1: SalaDisponible = {
-      id: 1,
-      inicio: new Date('2025-05-10T00:00:00Z'),
-      fin: new Date('2025-05-11T00:00:00Z'),
-    };
-    const sala2: SalaDisponible = {
-      id: 2,
-      inicio: new Date('2025-06-10T00:00:00Z'),
-      fin: new Date('2025-06-11T00:00:00Z'),
-    };
-    const sala3: SalaDisponible = {
-      id: 3,
-      inicio: new Date('2025-06-20T00:00:00Z'),
-      fin: new Date('2025-06-21T00:00:00Z'),
-    };
-    const salas = [sala1, sala2, sala3];
+    try {
+      const dia = new Date(`${fecha}T00:00:00.000Z`);
 
-    let salasDisponibles;
-    // Si hay salas seleccionadas por el usuario
-    if (salasSeleccionadas && salasSeleccionadas.length > 0) {
-      // Filtrar salas dentro del rango
-      salasDisponibles = salas.filter(
-        (current) => current.inicio >= fechaInicio && current.fin <= fechaFin,
-      );
-
-      // Filtrar salas seleccionadas
-      const salasFiltradas = new Array<any>();
-      salasSeleccionadas.forEach((currentSelected) => {
-        salasDisponibles.forEach((currentDisp) => {
-          if (currentSelected === currentDisp.id) {
-            salasFiltradas.push(currentDisp);
-          }
-        });
+      const resPorDia = await this.prisma.reservaciones.findMany({
+        where: {
+          fechaEvento: dia,
+          ...(salasSeleccionadas?.length
+            ? { idSala: { in: salasSeleccionadas } }
+            : {}),
+        },
       });
-      return salasFiltradas;
-    } else {
-      salasDisponibles = salas.filter(
-        (current) => current.inicio >= fechaInicio && current.fin <= fechaFin,
-      );
-      return salasDisponibles;
+
+      const idSalasOcupadas = [...new Set(resPorDia.map((r) => r.idSala))];
+
+      const salasOcupadasBase = await this.prisma.salas.findMany({
+        where: { id: { in: idSalasOcupadas } },
+      });
+
+      const salasOcupadas = salasOcupadasBase.map((sala) => {
+        const reservas = resPorDia
+          .filter((res) => res.idSala === sala.id)
+          .map((res) => ({
+            start: new Date(res.horaInicio).getHours(),
+            end: new Date(res.horaFin).getHours(),
+            label: res.nombreEvento || 'Reservado',
+            color: '#f87171', // o puedes cambiarlo según tipo de evento
+          }));
+
+        return {
+          ...sala,
+          reservas,
+        };
+      });
+
+      const salasDisponibles = await this.prisma.salas.findMany({
+        where: { id: { notIn: idSalasOcupadas } },
+      });
+
+      const salasDisponiblesConReservas = salasDisponibles.map((sala) => ({
+        ...sala,
+        reservas: [],
+      }));
+
+      return {
+        message: 'ok',
+        data: {
+          salasOcupadas,
+          salasDisponibles: salasDisponiblesConReservas,
+        },
+      };
+    } catch (e: any) {
+      console.error(e);
+      return { message: e.message, data: null };
     }
   }
 
@@ -85,7 +99,7 @@ export class SalasService {
    * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data,
    * donde data puede ser null en caso de no encontrar algo
    * @param idSala id de la sala
-   * @returns {message:"ok"|| error encontrad,data:[equipos] || null }
+   * @returns {message:"ok"|| error encontrad,data:[{equipo , detalles}] || null }
    */
   async ObtenerEquipoDeSala(idSala: number) {
     try {
@@ -93,7 +107,17 @@ export class SalasService {
         where: { idSala: idSala },
       });
       if (!equipo) throw new Error('Equipo no encontrado. ', equipo);
-      return { message: 'ok', data: equipo };
+
+      const listaDeEquipo = await Promise.all(
+        equipo.map(async (current) => {
+          const tipoEquipo = await this.prisma.tiposEquipo.findUnique({
+            where: { id: current.idTipoEquipo },
+          });
+          return { equipo: current, detalles: tipoEquipo };
+        }),
+      );
+
+      return { message: 'ok', data: listaDeEquipo };
     } catch (e) {
       console.error(e.message);
       return { message: e.message, data: null };
@@ -101,24 +125,63 @@ export class SalasService {
   }
 
   /**
-   * Actualiza los atributos del equipo
-   * @param nuevoEquipo El equipo con sus datos a actualizar
+   * Obtiene la sala por id
+   * @param id Id de la sala
+   * @returns {message:error|| ok, data:null||sala}
+   */
+  async ObtenerSalaPorId(id: number) {
+    try {
+      const sala = await this.prisma.salas.findUnique({ where: { id: id } });
+      if (!sala) throw new Error('Sala no encontrada');
+      return { message: 'ok', data: sala };
+    } catch (e) {
+      console.error(e);
+      return { message: e.message, data: null };
+    }
+  }
+
+  /**
+   *
+   * @param idEquipo
+   * @param nombre
+   * @param cantidad
+   * @param estado
    * @returns {message:ok || error, data:resultado||null}
    */
-  async ActualizarEquipoDeSala(nuevoEquipo: actualizarEquipo) {
+  async ActualizarEquipoDeSala(
+    idEquipo: number,
+    nombre?: string,
+    cantidad?: number,
+    estado?: EstadoEquipo,
+  ) {
     try {
       const equipo = await this.prisma.equiposSala.findFirst({
-        where: { id: nuevoEquipo.id },
+        where: { id: idEquipo },
       });
       if (!equipo) throw new Error('Equipo no encontrado.');
 
-      const { id: _, ...equipoSinId } = nuevoEquipo;
-
       const res = await this.prisma.equiposSala.update({
         where: { id: equipo.id },
-        data: equipoSinId,
+        data: {
+          cantidad: cantidad ?? equipo.cantidad,
+          estado: estado ?? equipo.estado,
+        },
       });
+
       if (!res) throw new Error('Error al actualizar el equipo. ', res);
+
+      if (nombre) {
+        const res2 = await this.prisma.tiposEquipo.update({
+          where: { id: equipo.idTipoEquipo },
+          data: {
+            nombre: nombre,
+          },
+        });
+        if (!res2) throw new Error('Error al actualizar el nombre del equipo');
+
+        return { message: 'ok', data: { equipo: res, tipoEquipo: res2 } };
+      }
+
       return { message: 'ok', data: res };
     } catch (e) {
       console.error(e.message);

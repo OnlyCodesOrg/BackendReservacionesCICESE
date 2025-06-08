@@ -1,49 +1,89 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { EstadoEquipo } from '../../types/common.types';
+import { IsString, IsInt, IsOptional, IsEnum, Min } from 'class-validator';
+
+export enum EstadoEquipo {
+  Operativo = 'Operativo',
+  NoOperativo = 'NoOperativo',
+  EnMantenimiento = 'EnMantenimiento',
+  Dañado = 'Dañado',
+}
 
 export class ActualizarElementoInventarioDto {
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'Nombre del elemento del inventario (debe coincidir con un tipo de equipo existente)',
+    example: 'Cámara',
+    enum: [
+      'Cámara',
+      'Micrófono',
+      'Pantalla',
+      'Proyector',
+      'Silla',
+      'Mesa',
+      'Pizarrón',
+      'Plumón',
+      'Borrador',
+    ],
+  })
+  @IsString()
   nombre: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Cantidad del elemento',
+    example: 3,
+    minimum: 0,
+  })
+  @IsInt()
+  @Min(0)
   cantidad: number;
 
   @ApiProperty({
-    enum: ['Operativo', 'NoOperativo', 'EnMantenimiento', 'Dañado'],
+    description: 'Estado del elemento',
+    example: 'Operativo',
+    enum: EstadoEquipo,
   })
+  @IsEnum(EstadoEquipo)
   estado: EstadoEquipo;
 }
 
-export class ElementoInventarioDto {
-  @ApiProperty()
-  id: number;
-
-  @ApiProperty()
-  cantidad: number;
-
-  @ApiProperty()
-  estado: string;
-}
-
 export class ActualizarInventarioSalaDto {
-  @ApiProperty({ required: false })
-  idSala?: number;
+  @ApiProperty({
+    description: 'ID de la sala',
+    example: 1,
+  })
+  @IsInt()
+  idSala: number;
 
-  @ApiProperty({ type: [ActualizarElementoInventarioDto] })
+  @ApiProperty({
+    description: 'Lista de elementos del inventario a actualizar',
+    type: [ActualizarElementoInventarioDto],
+  })
   elementos: ActualizarElementoInventarioDto[];
 }
 
 export class ActualizarInventarioResponseDto {
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Indica si la operación fue exitosa',
+    example: true,
+  })
   success: boolean;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Mensaje descriptivo del resultado',
+    example: 'Inventario actualizado exitosamente',
+  })
   message: string;
 
-  @ApiProperty()
-  sala: {
+  @ApiProperty({
+    description: 'Información de la sala actualizada',
+    example: {
+      id: 1,
+      nombreSala: 'Sala de Conferencias A',
+    },
+  })
+  @IsOptional()
+  sala?: {
     id: number;
     nombreSala: string;
-    ubicacion?: string;
   };
 }
