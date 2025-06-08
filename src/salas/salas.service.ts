@@ -19,7 +19,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
 import { actualizarEquipo } from './dto/actualizar-equipo.dto';
 import { respuestaGenerica } from './dto/respuesta-generica.dto';
-import { Salas } from 'generated/prisma';
+import { EstadoEquipo, Salas } from 'generated/prisma';
+import { EquipoSala } from 'src/entities/EquipoSala.entity';
 
 @Injectable()
 export class SalasService {
@@ -31,23 +32,16 @@ export class SalasService {
   /**
    *
    * @param fecha DIA del evento
-   * @param horaInicio Hora en formato HH:MM
-   * @param horaFin Hora en formato HH:MM
    * @param salasSeleccionadas Array opcional de salas seleccionadas [id,id]
    * @returns {message:'mensaje de error || ok, dat:'Un array con las salas disponibles' || null}
    */
   async ObtenerSalasDisponiblesPorHora(
     fecha: string,
-    horaInicio: string,
-    horaFin: string,
     salasSeleccionadas?: number[],
   ) {
     try {
       const dia = new Date(`${fecha}T00:00:00.000Z`);
-      const horaInicioUTC = new Date(`1970-01-01T${horaInicio}:00.000Z`);
-      const horaFinUTC = new Date(`1970-01-01T${horaFin}:00.000Z`);
 
-      // Obtener reservaciones de ese día
       const resPorDia = await this.prisma.reservaciones.findMany({
         where: {
           fechaEvento: dia,
@@ -57,30 +51,44 @@ export class SalasService {
         },
       });
 
-      // Filtrar reservaciones que se solapan con el rango de horas dado
-      const resPorHora = resPorDia.filter((res) => {
-        const inicio = res.horaInicio;
-        const fin = res.horaFin;
-        return (
-          inicio.getTime() < horaFinUTC.getTime() && // Empieza antes de que termine
-          fin.getTime() > horaInicioUTC.getTime() // Termina después de que empieza
-        );
+      const idSalasOcupadas = [...new Set(resPorDia.map((r) => r.idSala))];
+
+      const salasOcupadasBase = await this.prisma.salas.findMany({
+        where: { id: { in: idSalasOcupadas } },
       });
 
-      const salasOcupadas = resPorHora.map((current) => current.idSala);
+      const salasOcupadas = salasOcupadasBase.map((sala) => {
+        const reservas = resPorDia
+          .filter((res) => res.idSala === sala.id)
+          .map((res) => ({
+            start: new Date(res.horaInicio).getHours(),
+            end: new Date(res.horaFin).getHours(),
+            label: res.nombreEvento || 'Reservado',
+            color: '#f87171', // o puedes cambiarlo según tipo de evento
+          }));
+
+        return {
+          ...sala,
+          reservas,
+        };
+      });
 
       const salasDisponibles = await this.prisma.salas.findMany({
-        where: {
-          AND: [
-            ...(salasSeleccionadas?.length
-              ? [{ id: { in: salasSeleccionadas } }]
-              : []),
-            { id: { notIn: salasOcupadas } },
-          ],
-        },
+        where: { id: { notIn: idSalasOcupadas } },
       });
 
-      return { message: 'ok', data: salasDisponibles };
+      const salasDisponiblesConReservas = salasDisponibles.map((sala) => ({
+        ...sala,
+        reservas: [],
+      }));
+
+      return {
+        message: 'ok',
+        data: {
+          salasOcupadas,
+          salasDisponibles: salasDisponiblesConReservas,
+        },
+      };
     } catch (e: any) {
       console.error(e);
       return { message: e.message, data: null };
@@ -100,10 +108,14 @@ export class SalasService {
       });
       if (!equipo) throw new Error('Equipo no encontrado. ', equipo);
 
-      const listaDeEquipo = await Promise.all(equipo.map(async (current) => {
-        const tipoEquipo = await this.prisma.tiposEquipo.findUnique({ where: { id: current.idTipoEquipo } })
-        return { equipo: current, detalles: tipoEquipo };
-      }));
+      const listaDeEquipo = await Promise.all(
+        equipo.map(async (current) => {
+          const tipoEquipo = await this.prisma.tiposEquipo.findUnique({
+            where: { id: current.idTipoEquipo },
+          });
+          return { equipo: current, detalles: tipoEquipo };
+        }),
+      );
 
       return { message: 'ok', data: listaDeEquipo };
     } catch (e) {
@@ -120,8 +132,8 @@ export class SalasService {
   async ObtenerSalaPorId(id: number) {
     try {
       const sala = await this.prisma.salas.findUnique({ where: { id: id } });
-      if (!sala) throw new Error("Sala no encontrada");
-      return { message: "ok", data: sala };
+      if (!sala) throw new Error('Sala no encontrada');
+      return { message: 'ok', data: sala };
     } catch (e) {
       console.error(e);
       return { message: e.message, data: null };
@@ -129,24 +141,47 @@ export class SalasService {
   }
 
   /**
-   * Actualiza los atributos del equipo
-   * @param nuevoEquipo El equipo con sus datos a actualizar
+   *
+   * @param idEquipo
+   * @param nombre
+   * @param cantidad
+   * @param estado
    * @returns {message:ok || error, data:resultado||null}
    */
-  async ActualizarEquipoDeSala(nuevoEquipo: actualizarEquipo) {
+  async ActualizarEquipoDeSala(
+    idEquipo: number,
+    nombre?: string,
+    cantidad?: number,
+    estado?: EstadoEquipo,
+  ) {
     try {
       const equipo = await this.prisma.equiposSala.findFirst({
-        where: { id: nuevoEquipo.id },
+        where: { id: idEquipo },
       });
       if (!equipo) throw new Error('Equipo no encontrado.');
 
-      const { id: _, ...equipoSinId } = nuevoEquipo;
-
       const res = await this.prisma.equiposSala.update({
         where: { id: equipo.id },
-        data: equipoSinId,
+        data: {
+          cantidad: cantidad ?? equipo.cantidad,
+          estado: estado ?? equipo.estado,
+        },
       });
+
       if (!res) throw new Error('Error al actualizar el equipo. ', res);
+
+      if (nombre) {
+        const res2 = await this.prisma.tiposEquipo.update({
+          where: { id: equipo.idTipoEquipo },
+          data: {
+            nombre: nombre,
+          },
+        });
+        if (!res2) throw new Error('Error al actualizar el nombre del equipo');
+
+        return { message: 'ok', data: { equipo: res, tipoEquipo: res2 } };
+      }
+
       return { message: 'ok', data: res };
     } catch (e) {
       console.error(e.message);

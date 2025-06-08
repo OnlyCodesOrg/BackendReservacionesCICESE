@@ -10,9 +10,20 @@ export enum EstadoEquipo {
 
 export class ActualizarElementoInventarioDto {
   @ApiProperty({
-    description: 'Nombre del elemento del inventario (debe coincidir con un tipo de equipo existente)',
+    description:
+      'Nombre del elemento del inventario (debe coincidir con un tipo de equipo existente)',
     example: 'Cámara',
-    enum: ['Cámara', 'Micrófono', 'Pantalla', 'Proyector', 'Silla', 'Mesa', 'Pizarrón', 'Plumón', 'Borrador'],
+    enum: [
+      'Cámara',
+      'Micrófono',
+      'Pantalla',
+      'Proyector',
+      'Silla',
+      'Mesa',
+      'Pizarrón',
+      'Plumón',
+      'Borrador',
+    ],
   })
   @IsString()
   nombre: string;

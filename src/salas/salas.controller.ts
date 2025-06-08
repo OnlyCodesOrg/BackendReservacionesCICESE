@@ -34,7 +34,7 @@ import { actualizarEquipo } from './dto/actualizar-equipo.dto';
 @ApiTags('salas')
 @Controller('salas')
 export class SalasController {
-  constructor(private readonly salasService: SalasService) { }
+  constructor(private readonly salasService: SalasService) {}
 
   /**
    * Obtiene la lista de salas disponibles dentro del rango de fechas
@@ -42,7 +42,7 @@ export class SalasController {
    */
   @Post('listar')
   @ApiOperation({
-    description: 'Obtiene la lista de salas con un rango de fechas definidas',
+    description: 'Obtiene la lista de salas disponibles y ocupadas de un dia',
   })
   @ApiBody({
     type: listarSalas,
@@ -58,8 +58,6 @@ export class SalasController {
   async ListarSalas(@Body() data: any) {
     return await this.salasService.ObtenerSalasDisponiblesPorHora(
       data.fecha,
-      data.horaInicio,
-      data.horaFin,
       data.salasSeleccionadas,
     );
   }
@@ -75,8 +73,8 @@ export class SalasController {
     description: 'Obtiene una sala por Id',
   })
   @ApiParam({
-    name:"id",
-    description:"id de la sala"
+    name: 'id',
+    description: 'id de la sala',
   })
   @ApiResponse({
     status: 200,
@@ -119,24 +117,33 @@ export class SalasController {
    */
   @Post('equipo/actualizar')
   @ApiOperation({
-    summary: 'Actualizar equipo',
+    summary:
+      'Actualiza el equipo de una sala en especifico, actualiza campos como nombre, cantidad o estado',
   })
   @ApiBody({
-    description: 'Necesita el id del equipo y los atributos a actualizar',
+    description:
+      'Necesita el id del equipo y los atributos a actualizar, cada atributo es opcional',
     type: actualizarEquipo,
   })
   @ApiResponse({
     status: 200,
-    description: 'Responde con un mensaje y la data',
+    description:
+      'Responde con un mensaje y la data que es el equipo actualizado o el equipo y el tipoEquipo actualizado',
     type: respuestaGenerica,
   })
   @ApiResponse({
     status: 400,
-    description: 'Responde con un mensaje y la data',
+    description:
+      'Responde con un mensaje de error y en la data retorna un Null',
     type: respuestaGenerica,
   })
   async ActualizarEquipo(@Body() data: any) {
-    return await this.salasService.ActualizarEquipoDeSala(data);
+    return await this.salasService.ActualizarEquipoDeSala(
+      data.id,
+      data.nombre,
+      data.cantidad,
+      data.estado,
+    );
   }
 
   /**
