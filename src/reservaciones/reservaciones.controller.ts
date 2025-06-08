@@ -263,4 +263,9 @@ export class ReservacionesController {
     const id = parseInt(idUsuario, 10);
     return await this.reservacionesService.reservacionesAnteriores(id);
   }
+
+  @Post('actualizar')
+  async ActualizarReservacion(@Body()data){
+
+  }
 }

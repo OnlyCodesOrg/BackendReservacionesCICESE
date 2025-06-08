@@ -19,14 +19,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
 import { actualizarEquipo } from './dto/actualizar-equipo.dto';
 import { respuestaGenerica } from './dto/respuesta-generica.dto';
-import { Salas } from 'generated/prisma';
+import { EstadoEquipo, Salas } from 'generated/prisma';
+import { EquipoSala } from 'src/entities/EquipoSala.entity';
 
 @Injectable()
 export class SalasService {
   constructor(
     private prisma: PrismaService,
     private reservacionesService: ReservacionesService,
-  ) { }
+  ) {}
 
   /**
    *
@@ -62,8 +63,8 @@ export class SalasService {
           .map((res) => ({
             start: new Date(res.horaInicio).getHours(),
             end: new Date(res.horaFin).getHours(),
-            label: res.nombreEvento || "Reservado",
-            color: "#f87171", // o puedes cambiarlo según tipo de evento
+            label: res.nombreEvento || 'Reservado',
+            color: '#f87171', // o puedes cambiarlo según tipo de evento
           }));
 
         return {
@@ -82,7 +83,7 @@ export class SalasService {
       }));
 
       return {
-        message: "ok",
+        message: 'ok',
         data: {
           salasOcupadas,
           salasDisponibles: salasDisponiblesConReservas,
@@ -93,8 +94,6 @@ export class SalasService {
       return { message: e.message, data: null };
     }
   }
-
-
 
   /**
    * Obtiene el equipo de la sala especificada, retorna un objeto con un message y data,
@@ -142,24 +141,47 @@ export class SalasService {
   }
 
   /**
-   * Actualiza los atributos del equipo
-   * @param nuevoEquipo El equipo con sus datos a actualizar
+   *
+   * @param idEquipo
+   * @param nombre
+   * @param cantidad
+   * @param estado
    * @returns {message:ok || error, data:resultado||null}
    */
-  async ActualizarEquipoDeSala(nuevoEquipo: actualizarEquipo) {
+  async ActualizarEquipoDeSala(
+    idEquipo: number,
+    nombre?: string,
+    cantidad?: number,
+    estado?: EstadoEquipo,
+  ) {
     try {
       const equipo = await this.prisma.equiposSala.findFirst({
-        where: { id: nuevoEquipo.id },
+        where: { id: idEquipo },
       });
       if (!equipo) throw new Error('Equipo no encontrado.');
 
-      const { id: _, ...equipoSinId } = nuevoEquipo;
-
       const res = await this.prisma.equiposSala.update({
         where: { id: equipo.id },
-        data: equipoSinId,
+        data: {
+          cantidad: cantidad ?? equipo.cantidad,
+          estado: estado ?? equipo.estado,
+        },
       });
+
       if (!res) throw new Error('Error al actualizar el equipo. ', res);
+
+      if (nombre) {
+        const res2 = await this.prisma.tiposEquipo.update({
+          where: { id: equipo.idTipoEquipo },
+          data: {
+            nombre: nombre,
+          },
+        });
+        if (!res2) throw new Error('Error al actualizar el nombre del equipo');
+
+        return { message: 'ok', data: { equipo: res, tipoEquipo: res2 } };
+      }
+
       return { message: 'ok', data: res };
     } catch (e) {
       console.error(e.message);
@@ -252,7 +274,7 @@ export class SalasService {
     let fechaEvento: Date;
     try {
       // Verificar si el formato es válido (YYYY-MM-DD)
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(diaActual)) {
+      if (!/^\d{ 4 } -\d{ 2 } -\d{ 2 } $ /.test(diaActual)) {
         throw new BadRequestException(
           'Formato de fecha inválido. Utilice el formato YYYY-MM-DD',
         );
