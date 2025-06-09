@@ -475,7 +475,7 @@ export class ReservacionesService {
     }
 
     // Build where condition based on user role
-    let whereCondition: any = { estadoSolicitud: 'Pendiente' };
+    const whereCondition: any = { estadoSolicitud: 'Pendiente' };
 
     if (usuario.id_rol === 1) {
       // Admin can see all pending requests
