@@ -223,7 +223,7 @@ async function main() {
   ]);
 
   // Create ServiciosAdicionales
-  await Promise.all([
+  const serviciosAdicionales = await Promise.all([
     prisma.serviciosAdicionales.create({
       data: {
         nombre: 'Soporte Técnico Presencial',
@@ -240,36 +240,54 @@ async function main() {
     }),
   ]);
 
-  // Create a test Reservacion
-  const reservacion = await prisma.reservaciones.create({
-    data: {
-      numeroReservacion: 'RES-2025-001',
-      idUsuario: usuarios[2].id,
-      idTecnicoAsignado: tecnicos[0].id,
-      idSala: salas[0].id,
-      nombreEvento: 'Reunión de Proyecto',
-      tipoEvento: 'Reunion',
-      fechaEvento: new Date('2025-06-05'),
-      horaInicio: new Date('2025-06-05T10:00:00'),
-      horaFin: new Date('2025-06-05T12:00:00'),
-      numeroAsistentesEstimado: 10,
-      estadoSolicitud: 'Pendiente',
-      tipoRecurrencia: 'Unica',
-      observaciones: 'Reunión importante de proyecto',
-      fechaCreacionSolicitud: new Date('2025-06-03'),
-    },
-  });
+  // Create test reservations for approval workflow
+  const reservaciones = await Promise.all([
+    prisma.reservaciones.create({
+      data: {
+        numeroReservacion: 'RES-2025-001',
+        idUsuario: usuarios[2].id,
+        idTecnicoAsignado: tecnicos[0].id,
+        idSala: salas[0].id,
+        nombreEvento: 'Reunión de Proyecto',
+        tipoEvento: 'Reunion',
+        fechaEvento: new Date('2025-06-05'),
+        horaInicio: new Date('2025-06-05T10:00:00'),
+        horaFin: new Date('2025-06-05T12:00:00'),
+        numeroAsistentesEstimado: 10,
+        estadoSolicitud: 'Pendiente',
+        tipoRecurrencia: 'Unica',
+        observaciones: 'Reunión importante de proyecto',
+        fechaCreacionSolicitud: new Date('2025-06-03'),
+      },
+    }),
+    prisma.reservaciones.create({
+      data: {
+        numeroReservacion: 'RES-2025-002',
+        idUsuario: usuarios[2].id,
+        idTecnicoAsignado: tecnicos[0].id,
+        idSala: salas[1].id,
+        nombreEvento: 'Conferencia Anual',
+        tipoEvento: 'Conferencia',
+        fechaEvento: new Date('2025-06-10'),
+        horaInicio: new Date('2025-06-10T09:00:00'),
+        horaFin: new Date('2025-06-10T17:00:00'),
+        numeroAsistentesEstimado: 50,
+        estadoSolicitud: 'Pendiente',
+        tipoRecurrencia: 'Unica',
+        observaciones: 'Evento anual del departamento',
+        fechaCreacionSolicitud: new Date('2025-06-03'),
+      },
+    }),
+  ]);
 
-  // Create ParticipantesAdicionales for the reservacion
+  // Create ParticipantesAdicionales for the first reservacion
   await prisma.partcipantesAdicionales.create({
     data: {
-      idReservacion: reservacion.id,
+      idReservacion: reservaciones[0].id,
       nombre: 'Daniel LoInsano',
       email: 'tilin@cicese.mx',
     },
   });
-
-  console.log('Seed data created successfully');
 }
 
 main()

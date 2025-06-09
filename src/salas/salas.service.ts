@@ -27,7 +27,7 @@ export class SalasService {
   constructor(
     private prisma: PrismaService,
     private reservacionesService: ReservacionesService,
-  ) { }
+  ) {}
 
   /**
    *

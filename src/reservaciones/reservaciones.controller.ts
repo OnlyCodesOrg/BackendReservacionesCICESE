@@ -20,6 +20,7 @@ import {
 } from '@nestjs/swagger';
 import { respuestaGenerica } from 'src/salas/dto/respuesta-generica.dto';
 import { UpdateReservacioneDto } from './dto/update-reservacione.dto';
+import { SolicitudAprobacion, AccionAprobacion } from '../types';
 
 @Controller('reservaciones')
 export class ReservacionesController {
@@ -444,5 +445,125 @@ export class ReservacionesController {
   @Patch('/modificar')
   async modificarReservacion(@Body() reservacion: UpdateReservacioneDto) {
     return await this.reservacionesService.actualizarReservacion(reservacion);
+  }
+
+  @Get('/solicitudes-pendientes/:idUsuario')
+  @ApiOperation({
+    summary: 'Obtener solicitudes pendientes de aprobación',
+    description:
+      'Obtiene las solicitudes de reservación pendientes que el usuario puede aprobar según su rol',
+  })
+  @ApiParam({
+    name: 'idUsuario',
+    description:
+      'ID del usuario que solicita las pendientes (debe ser admin o jefe de departamento)',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de solicitudes pendientes',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'number' },
+          numeroReservacion: { type: 'string' },
+          nombreEvento: { type: 'string' },
+          fechaEvento: { type: 'string', format: 'date-time' },
+          solicitante: {
+            type: 'object',
+            properties: {
+              nombre: { type: 'string' },
+              email: { type: 'string' },
+              departamento: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
+  async obtenerSolicitudesPendientes(
+    @Param('idUsuario') idUsuario: string,
+  ): Promise<SolicitudAprobacion[]> {
+    const id = parseInt(idUsuario, 10);
+    return await this.reservacionesService.obtenerSolicitudesPendientes(id);
+  }
+
+  @Post('/procesar-aprobacion')
+  @ApiOperation({
+    summary: 'Aprobar o rechazar una reservación',
+    description:
+      'Permite a un usuario autorizado aprobar o rechazar una solicitud de reservación',
+  })
+  @ApiBody({
+    description: 'Datos para procesar la aprobación',
+    schema: {
+      type: 'object',
+      properties: {
+        numeroReservacion: {
+          type: 'string',
+          description: 'Número de la reservación',
+        },
+        accion: {
+          type: 'string',
+          enum: ['aprobar', 'rechazar'],
+          description: 'Acción a realizar',
+        },
+        motivo: {
+          type: 'string',
+          description: 'Motivo del rechazo (opcional)',
+        },
+        idUsuarioAprobador: {
+          type: 'number',
+          description: 'ID del usuario que aprueba/rechaza',
+        },
+      },
+      required: ['numeroReservacion', 'accion', 'idUsuarioAprobador'],
+    },
+    examples: {
+      aprobar: {
+        summary: 'Aprobar reservación',
+        value: {
+          numeroReservacion: 'RES-20250603-002',
+          accion: 'aprobar',
+          idUsuarioAprobador: 1,
+        },
+      },
+      rechazar: {
+        summary: 'Rechazar reservación',
+        value: {
+          numeroReservacion: 'RES-20250603-002',
+          accion: 'rechazar',
+          motivo: 'Conflicto con otro evento programado',
+          idUsuarioAprobador: 1,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Aprobación procesada exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'object',
+          description: 'Datos de la reservación actualizada',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Error al procesar la aprobación',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'No tiene permisos para aprobar esta reservación',
+  })
+  async procesarAprobacion(@Body() accionDto: AccionAprobacion) {
+    return await this.reservacionesService.procesarAprobacion(accionDto);
   }
 }
