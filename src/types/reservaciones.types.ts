@@ -61,3 +61,34 @@ export interface HistorialReservacion {
   fechaAccion: Date;
   detalles?: string | null;
 }
+
+export interface SolicitudAprobacion {
+  id: number;
+  numeroReservacion: string;
+  nombreEvento: string;
+  tipoEvento: string;
+  fechaEvento: Date;
+  horaInicio: Date;
+  horaFin: Date;
+  solicitante: {
+    nombre: string;
+    email: string;
+    departamento: string;
+  };
+  sala: {
+    nombre: string;
+    ubicacion: string;
+  };
+  departamentoResponsable: {
+    id: number;
+    nombre: string;
+  };
+  observaciones?: string;
+}
+
+export interface AccionAprobacion {
+  numeroReservacion: string;
+  accion: 'aprobar' | 'rechazar';
+  motivo?: string;
+  idUsuarioAprobador: number;
+}

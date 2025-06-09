@@ -13,6 +13,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Resend } from 'resend';
 import { UpdateReservacioneDto } from './dto/update-reservacione.dto';
+import { SolicitudAprobacion, AccionAprobacion } from '../types';
+
 @Injectable()
 export class ReservacionesService {
   private resend = process.env.RESEND_API_KEY
@@ -58,20 +60,24 @@ export class ReservacionesService {
       const horaInicioDate = new Date(`1970-01-01T${horaInicio}:00`);
       const horaFinDate = new Date(`1970-01-01T${horaFin}:00`);
 
-      const tecnico = await this.prisma.tecnicos.findUnique({
-        where: { id: idTecnicoAsignado },
-      });
       const usuario = await this.prisma.usuarios.findUnique({
         where: { id: idUsuario },
+        include: { departamento: true },
       });
+
       const sala = await this.prisma.salas.findUnique({
         where: { id: idSala },
+        include: { departamento: true },
       });
-      if (usuario) {
-        await this.enviarConfirmacionEmail(usuario, createDto, sala);
+
+      const tecnico = await this.prisma.tecnicos.findUnique({
+        where: { id: sala?.idTecnicoResponsable },
+        include: { usuario: true },
+      });
+
+      if (!sala || !usuario) {
+        throw new Error('Error con la consulta de usuario o sala');
       }
-      if (!tecnico || !sala || !usuario)
-        throw new Error('Error con la consulta');
 
       const nueva = await this.prisma.reservaciones.create({
         data: {
@@ -79,20 +85,28 @@ export class ReservacionesService {
           idUsuario: idUsuario,
           idSala: idSala,
           nombreEvento: nombreEvento,
-          tipoEvento: tipoEvento as TipoEvento, // Cast string to enum type (TipoEvento)
-          fechaEvento: new Date(fechaEvento), // convierte ISO string a Date
-          horaInicio: horaInicioDate, // guarda solo hora (Time)
+          tipoEvento: tipoEvento as TipoEvento,
+          fechaEvento: new Date(fechaEvento),
+          horaInicio: horaInicioDate,
           horaFin: horaFinDate,
           numeroAsistentesEstimado: asistentes,
-          numeroAsistentesReal: asistentes, // CAMBIAR: SOLO ES TEMPORAL PARA PROBAR
+          numeroAsistentesReal: asistentes,
           observaciones: observaciones ?? null,
-          // ---------------------------------------------
-          // El resto de campos (idTecnicoAsignado, numeroAsistentesReal,
-          // estadoSolicitud, tipoRecurrencia, fechaFinRecurrencia, ...)
-          // se completarán con valores por defecto o null.
-          // ---------------------------------------------
+          estadoSolicitud: 'Pendiente', // Set as pending for approval
+          idTecnicoAsignado: idTecnicoAsignado || null, // Handle optional technician
         },
       });
+
+      // Send pending confirmation email to user
+      if (usuario) {
+        await this.enviarConfirmacionPendiente(usuario, createDto, sala);
+      }
+
+      // Send approval request to responsible department
+      await this.enviarSolicitudAprobacion(nueva, usuario, sala);
+
+      // Note: Do NOT send notification to technician yet - only after approval
+
       return nueva;
     } catch (e) {
       throw new BadRequestException(
@@ -101,18 +115,37 @@ export class ReservacionesService {
     }
   }
 
-  async obtenerReservaciones() {
-    return this.prisma.reservaciones.findMany();
-  }
-  async enviarConfirmacionEmail(
-    usuario: any,
-    reservacion: CreateReservacioneDto,
-    sala: any,
-    departamento: any | null = null,
-  ) {
+  /**
+   * Sends approval request email to the responsible department
+   */
+  async enviarSolicitudAprobacion(reservacion: any, usuario: any, sala: any) {
     try {
       if (!this.resend) {
-        console.log('⚠️ Resend no está configurado. Saltando envío de email.');
+        console.log(
+          'Resend no está configurado. Saltando envío de email de aprobación.',
+        );
+        return;
+      }
+
+      // Get responsible users for the department
+      const responsables = await this.prisma.usuarios.findMany({
+        where: {
+          OR: [
+            {
+              AND: [
+                { id_rol: 4 }, // Jefe de Departamento
+                { id_departamento: sala.idDepartamento },
+              ],
+            },
+          ],
+        },
+        include: { departamento: true },
+      });
+
+      if (responsables.length === 0) {
+        console.log(
+          'No se encontraron responsables para aprobar la reservación',
+        );
         return;
       }
 
@@ -122,41 +155,376 @@ export class ReservacionesService {
         'template',
         'correo_cicese_formato.hbs',
       );
-      console.log('📧 Intentando leer template desde:', templatePath);
 
       const templateHtml = fs.readFileSync(templatePath, 'utf8');
-
       const template = Handlebars.compile(templateHtml);
+
+      const fechaLimite = new Date(reservacion.fechaEvento);
+      fechaLimite.setDate(fechaLimite.getDate() - 1); // 1 day before event
+
+      for (const responsable of responsables) {
+        const htmlContent = template({
+          esAprobacion: true,
+          responsableAprobacion: responsable.nombre,
+          numeroReservacion: reservacion.numeroReservacion,
+          nombreEvento: reservacion.nombreEvento,
+          tipo: reservacion.tipoEvento,
+          fecha: reservacion.fechaEvento,
+          horaInicio: reservacion.horaInicio,
+          horaFin: reservacion.horaFin,
+          participantes: reservacion.numeroAsistentesEstimado,
+          solicitante: usuario.nombre,
+          departamento: usuario.departamento?.nombre || 'N/A',
+          emailSolicitante: usuario.email,
+          nombreSala: sala.nombreSala,
+          ubicacionSala: sala.ubicacion || 'Edificio principal',
+          observaciones: reservacion.observaciones,
+          linkAprobacion: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/aprobar-reservacion?token=${reservacion.numeroReservacion}&accion=aprobar`,
+          linkRechazo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/aprobar-reservacion?token=${reservacion.numeroReservacion}&accion=rechazar`,
+          fechaLimite: fechaLimite.toLocaleDateString('es-ES'),
+        });
+
+        await this.resend.emails.send({
+          from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
+          to: responsable.email,
+          subject: `Solicitud de Aprobación - ${reservacion.nombreEvento}`,
+          html: htmlContent,
+        });
+      }
+    } catch (error) {
+      console.error('Error al enviar email de aprobación:', error.message);
+    }
+  }
+
+  /**
+   * Approve or reject a reservation
+   */
+  async procesarAprobacion(accionDto: AccionAprobacion) {
+    const { numeroReservacion, accion, motivo, idUsuarioAprobador } = accionDto;
+
+    try {
+      const reservacion = await this.prisma.reservaciones.findUnique({
+        where: { numeroReservacion },
+        include: {
+          usuario: { include: { departamento: true } },
+          sala: { include: { departamento: true } },
+        },
+      });
+
+      if (!reservacion) {
+        throw new BadRequestException('Reservación no encontrada');
+      }
+
+      if (reservacion.estadoSolicitud !== 'Pendiente') {
+        throw new BadRequestException('La reservación ya ha sido procesada');
+      }
+
+      // Verify approver has permission
+      const aprobador = await this.prisma.usuarios.findUnique({
+        where: { id: idUsuarioAprobador },
+        include: { rol: true },
+      });
+
+      if (!aprobador) {
+        throw new BadRequestException('Usuario aprobador no encontrado');
+      }
+
+      const puedeAprobar =
+        aprobador.id_rol === 1 || // Admin
+        (aprobador.id_rol === 4 &&
+          aprobador.id_departamento === reservacion.sala.idDepartamento); // Jefe del departamento responsable
+
+      if (!puedeAprobar) {
+        throw new BadRequestException(
+          'No tiene permisos para aprobar esta reservación',
+        );
+      }
+
+      // Update reservation status
+      const nuevoEstado = accion === 'aprobar' ? 'Aprobada' : 'Rechazada';
+
+      const reservacionActualizada = await this.prisma.reservaciones.update({
+        where: { numeroReservacion },
+        data: {
+          estadoSolicitud: nuevoEstado,
+          fechaUltimaModificacion: new Date(),
+          idUsuarioUltimaModificacion: idUsuarioAprobador,
+        },
+      });
+
+      // Create history record
+      await this.prisma.historialReservaciones.create({
+        data: {
+          idReservacion: reservacion.id,
+          accionRealizada: accion === 'aprobar' ? 'Aprobación' : 'Rechazo',
+          idUsuario: idUsuarioAprobador,
+          fechaAccion: new Date(),
+          detalles:
+            motivo ||
+            `Reservación ${accion === 'aprobar' ? 'aprobada' : 'rechazada'} por ${aprobador.nombre}`,
+        },
+      });
+
+      // Send notification to user about approval/rejection
+      await this.enviarNotificacionDecision(reservacion, accion, motivo);
+
+      return {
+        message: `Reservación ${accion === 'aprobar' ? 'aprobada' : 'rechazada'} exitosamente`,
+        data: reservacionActualizada,
+      };
+    } catch (error) {
+      throw new BadRequestException(
+        `Error al procesar aprobación: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Send notification to user about approval decision
+   */
+  async enviarNotificacionDecision(
+    reservacion: any,
+    accion: 'aprobar' | 'rechazar',
+    motivo?: string,
+  ) {
+    try {
+      if (!this.resend) {
+        console.log(
+          'Resend no está configurado. Saltando notificación de decisión.',
+        );
+        return;
+      }
+
+      if (accion === 'aprobar') {
+        // Send final confirmation to user
+        await this.enviarConfirmacionFinal(reservacion);
+
+        // Send notification to assigned technician
+        const tecnico = await this.prisma.tecnicos.findUnique({
+          where: { id: reservacion.sala.idTecnicoResponsable },
+          include: { usuario: true },
+        });
+
+        if (tecnico && tecnico.usuario) {
+          await this.enviarNotificacionTecnico(
+            reservacion,
+            tecnico,
+            reservacion.usuario,
+            reservacion.sala,
+          );
+        }
+      } else {
+        // Send rejection notification
+        const subject = `❌ Reservación Rechazada - ${reservacion.nombreEvento}`;
+        const mensaje = `Su solicitud de reservación ha sido rechazada. ${
+          motivo ? `Motivo: ${motivo}` : ''
+        }`;
+
+        await this.resend.emails.send({
+          from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
+          to: reservacion.usuario.email,
+          subject: subject,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+              <h2 style="color: #dc2626">❌ Reservación Rechazada</h2>
+              <p>Estimado/a ${reservacion.usuario.nombre},</p>
+              <p>${mensaje}</p>
+              <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <h3>Detalles de la reservación:</h3>
+                <ul>
+                  <li><strong>Número:</strong> ${reservacion.numeroReservacion}</li>
+                  <li><strong>Evento:</strong> ${reservacion.nombreEvento}</li>
+                  <li><strong>Fecha:</strong> ${reservacion.fechaEvento.toLocaleDateString('es-ES')}</li>
+                  <li><strong>Sala:</strong> ${reservacion.sala.nombreSala}</li>
+                </ul>
+              </div>
+              <p>Atentamente,<br/>Equipo de Telemática</p>
+            </div>
+          `,
+        });
+      }
+    } catch (error) {
+      console.error('Error al enviar notificación de decisión:', error.message);
+    }
+  }
+
+  /**
+   * Send pending confirmation email to user (before approval)
+   */
+  async enviarConfirmacionPendiente(
+    usuario: any,
+    reservacion: CreateReservacioneDto,
+    sala: any,
+  ) {
+    try {
+      if (!this.resend) {
+        console.log('Resend no está configurado. Saltando envío de email.');
+        return;
+      }
+
+      const templatePath = path.join(
+        __dirname,
+        '..',
+        'template',
+        'correo_cicese_formato.hbs',
+      );
+
+      const templateHtml = fs.readFileSync(templatePath, 'utf8');
+      const template = Handlebars.compile(templateHtml);
+
       const htmlContent = template({
         name: usuario.nombre,
+        numeroReservacion: reservacion.numeroReservacion,
         nombreEvento: reservacion.nombreEvento,
         tipo: reservacion.tipoEvento,
         fecha: reservacion.fechaEvento,
         horaInicio: reservacion.horaInicio,
         horaFin: reservacion.horaFin,
-        participantes: 0,
+        participantes: reservacion.asistentes,
         solicitante: usuario.nombre || 'Usuario',
-        departamento: 'N/A',
+        departamento: usuario.departamento?.nombre || 'N/A',
         emailSolicitante: usuario.email,
         nombreSala: sala.nombreSala || 'Sala asignada',
         ubicacionSala: sala.ubicacion || 'Edificio principal',
+        observaciones: reservacion.observaciones,
       });
 
       await this.resend.emails.send({
         from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
         to: usuario.email,
-        subject: 'Confirmación de Reservación',
+        subject: 'Solicitud de Reservación Recibida - Pendiente de Aprobación',
         html: htmlContent,
       });
-
-      console.log(
-        '✅ Email de confirmación enviado exitosamente a:',
-        usuario.email,
-      );
     } catch (error) {
-      console.error('❌ Error al enviar email de confirmación:', error.message);
-      // No lanzamos la excepción para que no afecte la creación de la reservación
+      console.error(
+        'Error al enviar email de confirmación pendiente:',
+        error.message,
+      );
     }
+  }
+
+  /**
+   * Send final confirmation email to user (after approval)
+   */
+  async enviarConfirmacionFinal(reservacion: any) {
+    try {
+      if (!this.resend) {
+        console.log('Resend no está configurado. Saltando confirmación final.');
+        return;
+      }
+
+      const templatePath = path.join(
+        __dirname,
+        '..',
+        'template',
+        'correo_cicese_formato.hbs',
+      );
+
+      const templateHtml = fs.readFileSync(templatePath, 'utf8');
+      const template = Handlebars.compile(templateHtml);
+
+      const htmlContent = template({
+        esConfirmacionFinal: true,
+        name: reservacion.usuario.nombre,
+        numeroReservacion: reservacion.numeroReservacion,
+        nombreEvento: reservacion.nombreEvento,
+        tipo: reservacion.tipoEvento,
+        fecha: reservacion.fechaEvento.toLocaleDateString('es-ES'),
+        horaInicio: reservacion.horaInicio.toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        horaFin: reservacion.horaFin.toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        participantes: reservacion.numeroAsistentesEstimado,
+        solicitante: reservacion.usuario.nombre,
+        departamento: reservacion.usuario.departamento?.nombre || 'N/A',
+        emailSolicitante: reservacion.usuario.email,
+        nombreSala: reservacion.sala.nombreSala,
+        ubicacionSala: reservacion.sala.ubicacion || 'Edificio principal',
+        observaciones: reservacion.observaciones,
+        linkZoom: reservacion.linkReunionOnline,
+      });
+
+      await this.resend.emails.send({
+        from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
+        to: reservacion.usuario.email,
+        subject: `Reservación Confirmada - ${reservacion.nombreEvento}`,
+        html: htmlContent,
+      });
+    } catch (error) {
+      console.error('Error al enviar confirmación final:', error.message);
+    }
+  }
+
+  /**
+   * Get pending approval requests for a user
+   */
+  async obtenerSolicitudesPendientes(
+    idUsuario: number,
+  ): Promise<SolicitudAprobacion[]> {
+    const usuario = await this.prisma.usuarios.findUnique({
+      where: { id: idUsuario },
+      include: { rol: true },
+    });
+
+    if (!usuario) {
+      throw new BadRequestException('Usuario no encontrado');
+    }
+
+    // Build where condition based on user role
+    let whereCondition: any = { estadoSolicitud: 'Pendiente' };
+
+    if (usuario.id_rol === 1) {
+      // Admin can see all pending requests
+    } else if (usuario.id_rol === 4) {
+      // Department head can only see requests for their department's rooms
+      whereCondition.sala = {
+        idDepartamento: usuario.id_departamento,
+      };
+    } else {
+      // Regular users can't see approval requests
+      return [];
+    }
+
+    const solicitudes = await this.prisma.reservaciones.findMany({
+      where: whereCondition,
+      include: {
+        usuario: { include: { departamento: true } },
+        sala: { include: { departamento: true } },
+      },
+      orderBy: { fechaCreacionSolicitud: 'desc' },
+    });
+
+    return solicitudes.map((reservacion) => ({
+      id: reservacion.id,
+      numeroReservacion: reservacion.numeroReservacion,
+      nombreEvento: reservacion.nombreEvento,
+      tipoEvento: reservacion.tipoEvento,
+      fechaEvento: reservacion.fechaEvento,
+      horaInicio: reservacion.horaInicio,
+      horaFin: reservacion.horaFin,
+      solicitante: {
+        nombre: reservacion.usuario.nombre,
+        email: reservacion.usuario.email,
+        departamento: reservacion.usuario.departamento?.nombre || 'N/A',
+      },
+      sala: {
+        nombre: reservacion.sala.nombreSala,
+        ubicacion: reservacion.sala.ubicacion || 'N/A',
+      },
+      departamentoResponsable: {
+        id: reservacion.sala.departamento?.id || 0,
+        nombre: reservacion.sala.departamento?.nombre || 'N/A',
+      },
+      observaciones: reservacion.observaciones ?? undefined,
+    }));
+  }
+
+  async obtenerReservaciones() {
+    return this.prisma.reservaciones.findMany();
   }
 
   async enviarCorreoPrueba() {
@@ -404,6 +772,68 @@ export class ReservacionesService {
         mensaje: 'Error al buscar las reservaciones: ' + error.message,
         data: null,
       };
+    }
+  }
+  /**
+   * Send notification to assigned technician (only after approval)
+   */
+  async enviarNotificacionTecnico(
+    reservacion: any,
+    tecnico: any,
+    usuario: any,
+    sala: any,
+  ) {
+    try {
+      if (!this.resend) {
+        console.log(
+          'Resend no está configurado. Saltando notificación a técnico.',
+        );
+        return;
+      }
+
+      const templatePath = path.join(
+        __dirname,
+        '..',
+        'template',
+        'correo_cicese_formato.hbs',
+      );
+
+      const templateHtml = fs.readFileSync(templatePath, 'utf8');
+      const template = Handlebars.compile(templateHtml);
+
+      const htmlContent = template({
+        esTecnico: true,
+        nombreTecnico: tecnico.usuario.nombre,
+        numeroReservacion: reservacion.numeroReservacion,
+        nombreEvento: reservacion.nombreEvento,
+        tipo: reservacion.tipoEvento,
+        fecha: reservacion.fechaEvento.toLocaleDateString('es-ES'),
+        horaInicio: reservacion.horaInicio.toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        horaFin: reservacion.horaFin.toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        participantes: reservacion.numeroAsistentesEstimado,
+        solicitante: usuario.nombre,
+        departamento: usuario.departamento?.nombre || 'N/A',
+        emailSolicitante: usuario.email,
+        nombreSala: sala.nombreSala,
+        ubicacionSala: sala.ubicacion || 'Edificio principal',
+        observaciones: reservacion.observaciones,
+        especialidadTecnico: tecnico.especialidad || 'General',
+      });
+
+      await this.resend.emails.send({
+        from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
+        to: tecnico.usuario.email,
+        subject: `🔧 Asignación Técnica Confirmada - ${reservacion.nombreEvento}`,
+        html: htmlContent,
+      });
+    } catch (error) {
+      console.error('Error al enviar notificación a técnico:', error.message);
     }
   }
 }

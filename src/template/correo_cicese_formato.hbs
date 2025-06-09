@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Confirmación de Reserva</title>
+  <title>{{#if esAprobacion}}Solicitud de Aprobación{{else if esTecnico}}Asignación Técnica{{else if esConfirmacionFinal}}Reservación Confirmada{{else}}Solicitud de Reservación{{/if}}</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -51,24 +51,80 @@
       border-top: 1px solid #ddd;
       padding-top: 15px;
     }
+    .info-box {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .success-box {
+      background: #d1fae5;
+      border: 1px solid #10b981;
+      border-radius: 6px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .approval-buttons {
+      text-align: center;
+      margin: 20px 0;
+    }
+    .btn-approve {
+      background: #10b981;
+      color: white;
+      padding: 12px 24px;
+      text-decoration: none;
+      border-radius: 6px;
+      margin: 0 10px;
+      display: inline-block;
+    }
+    .btn-reject {
+      background: #ef4444;
+      color: white;
+      padding: 12px 24px;
+      text-decoration: none;
+      border-radius: 6px;
+      margin: 0 10px;
+      display: inline-block;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>✅ Tu reservación ha sido confirmada</h1>
-
-    <div class="section">
-      <p>Hola <strong>{{name}}</strong>,</p>
-      <p>Tu solicitud ha sido procesada exitosamente. A continuación los detalles de tu evento:</p>
-    </div>
+    {{#if esAprobacion}}
+      <h1>📋 Solicitud de Aprobación de Reservación</h1>
+      <div class="info-box">
+        <p><strong>Estimado/a {{responsableAprobacion}},</strong></p>
+        <p>Se ha recibido una nueva solicitud de reservación que requiere su aprobación:</p>
+      </div>
+    {{else if esTecnico}}
+      <h1>🔧 Asignación Técnica - Reservación Confirmada</h1>
+      <div class="success-box">
+        <p><strong>Estimado/a {{nombreTecnico}},</strong></p>
+        <p>Se le ha asignado el soporte técnico para la siguiente reservación <strong>ya confirmada</strong>:</p>
+      </div>
+    {{else if esConfirmacionFinal}}
+      <h1>✅ ¡Reservación Confirmada!</h1>
+      <div class="success-box">
+        <p><strong>Hola {{name}},</strong></p>
+        <p>¡Excelente noticia! Tu reservación ha sido <strong>aprobada y confirmada</strong> por el departamento correspondiente.</p>
+      </div>
+    {{else}}
+      <h1>⏳ Tu reservación está pendiente de confirmación</h1>
+      <div class="info-box">
+        <p><strong>Hola {{name}},</strong></p>
+        <p>Hemos recibido tu solicitud de reservación. Está <strong>pendiente de aprobación</strong> por el departamento correspondiente. Te notificaremos una vez que sea procesada.</p>
+      </div>
+    {{/if}}
 
     <div class="section">
       <h2>🗓 Detalles del Evento</h2>
       <ul>
+        <li><strong>Número de Reservación:</strong> {{numeroReservacion}}</li>
         <li><strong>Nombre del evento:</strong> {{nombreEvento}}</li>
         <li><strong>Tipo:</strong> {{tipo}}</li>
         <li><strong>Fecha:</strong> {{fecha}}</li>
-        <li><strong>Horario:</strong> {horaInicio} – {{horaFin}}</li>
+        <li><strong>Horario:</strong> {{horaInicio}} – {{horaFin}}</li>
         <li><strong>Participantes:</strong> {{participantes}}</li>
         <li><strong>Solicitante:</strong> {{solicitante}} – {{departamento}}</li>
         <li><strong>Correo:</strong> {{emailSolicitante}}</li>
@@ -76,30 +132,63 @@
     </div>
 
     <div class="section">
-      <h2>📍 Sala Asignada</h2>
+      <h2>📍 Sala {{#if esConfirmacionFinal}}Confirmada{{else}}Solicitada{{/if}}</h2>
       <p><strong>{{nombreSala}}</strong><br/>
       {{ubicacionSala}}</p>
     </div>
 
+    {{#if observaciones}}
     <div class="section">
-      <h2>🧰 Recursos Solicitados</h2>
-      <ul>
-        <li><strong>Equipo necesario:</strong> Cámara x3</li>
-        <li><strong>Servicios necesarios:</strong> Wifi x3</li>
-      </ul>
+      <h2>📝 Observaciones</h2>
+      <p>{{observaciones}}</p>
     </div>
+    {{/if}}
 
+    {{#if esTecnico}}
+    <div class="section">
+      <h2>🔧 Información Técnica</h2>
+      <p><strong>Especialidad requerida:</strong> {{especialidadTecnico}}</p>
+      <p>Por favor, asegúrese de que todos los equipos y recursos técnicos estén listos para el evento.</p>
+    </div>
+    {{/if}}
+
+    {{#if esAprobacion}}
+    <div class="section">
+      <h2>⚡ Acciones Requeridas</h2>
+      <p><strong>Fecha límite para aprobación:</strong> {{fechaLimite}}</p>
+      <div class="approval-buttons">
+        <a href="{{linkAprobacion}}" class="btn-approve">✅ Aprobar Reservación</a>
+        <a href="{{linkRechazo}}" class="btn-reject">❌ Rechazar Reservación</a>
+      </div>
+    </div>
+    {{/if}}
+
+    {{#if linkZoom}}
     <div class="section">
       <h2>🔗 Enlace de Zoom</h2>
-      <p>Si aplica: <a href="https://zoom.us/tu-enlace-aqui" class="zoom-link">Unirse a la sesión</a></p>
-      <!-- Si no aplica, este bloque puede omitirse dinámicamente -->
+      <p>Enlace de la reunión: <a href="{{linkZoom}}" class="zoom-link">Unirse a la sesión</a></p>
     </div>
+    {{/if}}
 
     <div class="footer">
-      <p>Gracias por utilizar el sistema de reservas. Si necesitas modificar esta reservación, puedes hacerlo directamente desde el sistema.</p>
+      {{#if esAprobacion}}
+        <p>Por favor, procese esta solicitud lo antes posible. El evento está programado para {{fecha}}.</p>
+      {{else if esTecnico}}
+        <p>Contacte al solicitante si necesita más información sobre los requerimientos técnicos.</p>
+      {{else if esConfirmacionFinal}}
+        <p>Su reservación está confirmada. Si necesita realizar cambios, contacte al departamento correspondiente.</p>
+      {{else}}
+        <p>Recibirá una notificación por correo una vez que su solicitud sea aprobada o rechazada.</p>
+      {{/if}}
+      
       <p>Atentamente,<br/>
       <strong>Equipo de Telemática</strong><br/>
       <a href="mailto:telematica@cicese.mx">telematica@cicese.mx</a></p>
+    </div>
+    
+    <div class="footer">
+      <p>Este es un correo automático, por favor no respondas a este mensaje.</p>
+      <p>Si tienes alguna duda, contacta a <a href="mailto:telematica@cicese.mx">telematica@cicese.mx</a></p>
     </div>
   </div>
 </body>
