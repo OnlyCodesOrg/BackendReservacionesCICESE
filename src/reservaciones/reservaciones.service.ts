@@ -190,7 +190,6 @@ export class ReservacionesService {
           subject: `Solicitud de Aprobación - ${reservacion.nombreEvento}`,
           html: htmlContent,
         });
-
       }
     } catch (error) {
       console.error('Error al enviar email de aprobación:', error.message);
@@ -344,12 +343,8 @@ export class ReservacionesService {
           `,
         });
       }
-
     } catch (error) {
-      console.error(
-        'Error al enviar notificación de decisión:',
-        error.message,
-      );
+      console.error('Error al enviar notificación de decisión:', error.message);
     }
   }
 
@@ -400,7 +395,6 @@ export class ReservacionesService {
         subject: 'Solicitud de Reservación Recibida - Pendiente de Aprobación',
         html: htmlContent,
       });
-
     } catch (error) {
       console.error(
         'Error al enviar email de confirmación pendiente:',
@@ -415,9 +409,7 @@ export class ReservacionesService {
   async enviarConfirmacionFinal(reservacion: any) {
     try {
       if (!this.resend) {
-        console.log(
-          'Resend no está configurado. Saltando confirmación final.',
-        );
+        console.log('Resend no está configurado. Saltando confirmación final.');
         return;
       }
 
@@ -462,7 +454,6 @@ export class ReservacionesService {
         subject: `Reservación Confirmada - ${reservacion.nombreEvento}`,
         html: htmlContent,
       });
-
     } catch (error) {
       console.error('Error al enviar confirmación final:', error.message);
     }
@@ -734,7 +725,6 @@ export class ReservacionesService {
     };
   }
 
-
   async findAllByDateRange(fechaInicio?: string, fechaFin?: string) {
     try {
       const where: any = {};
@@ -782,6 +772,8 @@ export class ReservacionesService {
         mensaje: 'Error al buscar las reservaciones: ' + error.message,
         data: null,
       };
+    }
+  }
   /**
    * Send notification to assigned technician (only after approval)
    */
@@ -840,7 +832,6 @@ export class ReservacionesService {
         subject: `🔧 Asignación Técnica Confirmada - ${reservacion.nombreEvento}`,
         html: htmlContent,
       });
-
     } catch (error) {
       console.error('Error al enviar notificación a técnico:', error.message);
     }

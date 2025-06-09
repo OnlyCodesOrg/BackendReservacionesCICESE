@@ -498,6 +498,17 @@ export class ReservacionesController {
               },
             },
           },
+        },
+      },
+    },
+  })
+  async findAll(@Query() params: FindReservacionesByDateDto) {
+    return await this.reservacionesService.findAllByDateRange(
+      params.fechaInicio,
+      params.fechaFin,
+    );
+  }
+
   @Get('/solicitudes-pendientes/:idUsuario')
   @ApiOperation({
     summary: 'Obtener solicitudes pendientes de aprobación',
@@ -609,13 +620,6 @@ export class ReservacionesController {
   @ApiResponse({
     status: 400,
     description: 'Error en el formato de las fechas proporcionadas',
-  })
-  async findAll(@Query() params: FindReservacionesByDateDto) {
-    return await this.reservacionesService.findAllByDateRange(
-      params.fechaInicio,
-      params.fechaFin,
-    );
-    description: 'Error al procesar la aprobación',
   })
   @ApiResponse({
     status: 403,
