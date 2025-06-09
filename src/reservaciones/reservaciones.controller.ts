@@ -7,11 +7,19 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
 } from '@nestjs/common';
 import { ReservacionesService } from './reservaciones.service';
 import { CreateReservacioneDto } from './dto/create-reservacione.dto';
-import { ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import { respuestaGenerica } from 'src/salas/dto/respuesta-generica.dto';
+import { UpdateReservacioneDto } from './dto/update-reservacione.dto';
 
 @Controller('reservaciones')
 export class ReservacionesController {
@@ -264,6 +272,177 @@ export class ReservacionesController {
     return await this.reservacionesService.reservacionesAnteriores(id);
   }
 
-  @Post('actualizar')
-  async ActualizarReservacion(@Body() data) {}
+  @ApiOperation({
+    summary: 'Modificar una reservación existente',
+    description:
+      'Permite modificar una reservación existente con los nuevos datos proporcionados.',
+  })
+  @ApiBody({
+    description: 'Datos necesarios para modificar una reservación existente',
+    type: UpdateReservacioneDto,
+    examples: {
+      ejemploCompleto: {
+        summary: 'Ejemplo completo de modificación de reservación',
+        value: {
+          numeroReservacion: 'RES-1749335367102',
+          idSala: 2,
+          idUsuario: 1,
+          nombreEvento: 'Conferencia de Tecnología 2025',
+          tipoEvento: 'CONFERENCIA',
+          fechaEvento: '2025-08-15',
+          horaInicio: '09:00',
+          horaFin: '17:30',
+          numeroAsistentes: 120,
+          numeroAsistentesReal: 120,
+          estadoSolicitud: 'Cancelada',
+          observaciones: 'Evento anual con ponentes internacionales.',
+          idTecnicoAsignado: 1,
+          tipoRecurrencia: 'Diaria',
+          fechaFinRecurrencia: '2025-08-15T00:00:00.000Z',
+          idUsuarioUltimaModificacion: 2,
+          fallasRegistradas:
+            'Fallaron las camaras, el microfono se escuchaba muy saturado, la camara no enfocaba bien',
+          linkReunion: 'https://link',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reservación modificada exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          description: 'Mensaje de éxito',
+          example: 'Reservación modificada exitosamente',
+        },
+        data: {
+          type: 'object',
+          description: 'Datos de la reservación modificada',
+          properties: {
+            numeroReservacion: {
+              type: 'string',
+              description: 'Número de reservación modificado',
+              example: 'RES-1749335367102',
+            },
+            idUsuario: {
+              type: 'number',
+              description: 'ID del usuario que realizó la reservación',
+              example: 1,
+            },
+            idTecnicoAsignado: {
+              type: 'number',
+              description: 'ID del técnico asignado',
+              example: 1,
+            },
+            idSala: {
+              type: 'number',
+              description: 'ID de la sala reservada',
+              example: 2,
+            },
+            nombreEvento: {
+              type: 'string',
+              description: 'Nombre del evento',
+              example: 'Conferencia de Tecnología 2025',
+            },
+            tipoEvento: {
+              type: 'string',
+              description: 'Tipo de evento',
+              example: 'Videoconferencia',
+            },
+            fechaEvento: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Fecha del evento',
+              example: '2025-08-15T00:00:00.000Z',
+            },
+            horaInicio: {
+              type: 'string',
+              format: 'date-time',
+              description:
+                'Hora de inicio del evento (como fecha hora para compatibilidad)',
+              example: '1970-01-01T17:00:00.000Z',
+            },
+            horaFin: {
+              type: 'string',
+              format: 'date-time',
+              description:
+                'Hora de fin del evento (como fecha hora para compatibilidad)',
+              example: '1970-01-01T01:30:00.000Z',
+            },
+            numeroAsistentesEstimado: {
+              type: 'number',
+              description: 'Número estimado de asistentes',
+              example: 120,
+            },
+            numeroAsistentesReal: {
+              type: 'number',
+              description: 'Número real de asistentes',
+              example: 120,
+            },
+            estadoSolicitud: {
+              type: 'string',
+              description: 'Estado actual de la solicitud',
+              example: 'Cancelada',
+            },
+            tipoRecurrencia: {
+              type: 'string',
+              description: 'Tipo de recurrencia del evento',
+              example: 'Diaria',
+            },
+            fechaFinRecurrencia: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Fecha fin de la recurrencia',
+              example: '2025-08-15T00:00:00.000Z',
+            },
+            observaciones: {
+              type: 'string',
+              description: 'Observaciones adicionales',
+              example: 'Evento anual con ponentes internacionales.',
+            },
+            fechaCreacionSolicitud: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Fecha de creación de la solicitud',
+              example: '2025-06-07T22:29:27.135Z',
+            },
+            fechaUltimaModificacion: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Fecha de la última modificación',
+              example: '2025-06-08T06:44:01.097Z',
+            },
+            idUsuarioUltimaModificacion: {
+              type: 'number',
+              description: 'ID del usuario que hizo la última modificación',
+              example: 2,
+            },
+            linkReunionOnline: {
+              type: 'string',
+              format: 'uri',
+              description: 'Link a la reunión en línea',
+              example: 'https://link',
+            },
+            fallasRegistradas: {
+              type: 'string',
+              description: 'Descripción de fallas reportadas durante el evento',
+              example:
+                'Fallaron las camaras, el microfono se escuchaba muy saturado, la camara no enfocaba bien',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Problemas al modificar la reservación',
+  })
+  @Patch('/modificar')
+  async modificarReservacion(@Body() reservacion: UpdateReservacioneDto) {
+    return await this.reservacionesService.actualizarReservacion(reservacion);
+  }
 }
