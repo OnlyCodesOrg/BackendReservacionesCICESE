@@ -8,6 +8,7 @@ import {
   Param,
   ParseIntPipe,
   Patch,
+  Query,
 } from '@nestjs/common';
 import { ReservacionesService } from './reservaciones.service';
 import { CreateReservacioneDto } from './dto/create-reservacione.dto';
@@ -20,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { respuestaGenerica } from 'src/salas/dto/respuesta-generica.dto';
 import { UpdateReservacioneDto } from './dto/update-reservacione.dto';
+import { FindReservacionesByDateDto } from './dto/find-reservaciones-by-date.dto';
 
 @Controller('reservaciones')
 export class ReservacionesController {
@@ -444,5 +446,69 @@ export class ReservacionesController {
   @Patch('/modificar')
   async modificarReservacion(@Body() reservacion: UpdateReservacioneDto) {
     return await this.reservacionesService.actualizarReservacion(reservacion);
+  }
+
+  @Get('listar')
+  @ApiOperation({
+    summary: 'Listar todas las reservaciones',
+    description:
+      'Obtiene todas las reservaciones con opción de filtrar por rango de fechas.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de reservaciones encontradas',
+    schema: {
+      type: 'object',
+      properties: {
+        error: {
+          type: 'boolean',
+          description: 'Indica si hubo un error en la operación',
+        },
+        mensaje: {
+          type: 'string',
+          description: 'Mensaje descriptivo del resultado',
+        },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'number' },
+              numeroReservacion: { type: 'string' },
+              nombreEvento: { type: 'string' },
+              fechaEvento: { type: 'string', format: 'date-time' },
+              horaInicio: { type: 'string' },
+              horaFin: { type: 'string' },
+              estadoSolicitud: { type: 'string' },
+              sala: {
+                type: 'object',
+                properties: {
+                  nombreSala: { type: 'string' },
+                  ubicacion: { type: 'string' },
+                },
+              },
+              usuario: {
+                type: 'object',
+                properties: {
+                  nombre: { type: 'string' },
+                  apellido: { type: 'string' },
+                  email: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Error en el formato de las fechas proporcionadas',
+  })
+  async findAll(@Query() params: FindReservacionesByDateDto) {
+    return await this.reservacionesService.findAllByDateRange(
+      params.fechaInicio,
+      params.fechaFin,
+    );
   }
 }

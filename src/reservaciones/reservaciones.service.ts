@@ -356,4 +356,54 @@ export class ReservacionesService {
       data: actualizado,
     };
   }
+
+  async findAllByDateRange(fechaInicio?: string, fechaFin?: string) {
+    try {
+      const where: any = {};
+
+      if (fechaInicio || fechaFin) {
+        where.fechaEvento = {};
+        if (fechaInicio) {
+          where.fechaEvento.gte = new Date(fechaInicio);
+        }
+        if (fechaFin) {
+          where.fechaEvento.lte = new Date(fechaFin);
+        }
+      }
+
+      const reservaciones = await this.prisma.reservaciones.findMany({
+        where,
+        include: {
+          sala: {
+            select: {
+              nombreSala: true,
+              ubicacion: true,
+            },
+          },
+          usuario: {
+            select: {
+              nombre: true,
+              apellidos: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: {
+          fechaEvento: 'asc',
+        },
+      });
+
+      return {
+        error: false,
+        mensaje: 'Reservaciones encontradas exitosamente',
+        data: reservaciones,
+      };
+    } catch (error) {
+      return {
+        error: true,
+        mensaje: 'Error al buscar las reservaciones: ' + error.message,
+        data: null,
+      };
+    }
+  }
 }
