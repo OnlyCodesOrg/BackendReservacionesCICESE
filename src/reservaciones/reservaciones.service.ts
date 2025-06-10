@@ -836,4 +836,134 @@ export class ReservacionesService {
       console.error('Error al enviar notificación a técnico:', error.message);
     }
   }
+
+  /**
+   * Get reservation details by ID
+   * @param idReservacion - ID of the reservation
+   * @param idUsuario - ID of the user making the request (for access control)
+   * @returns Reservation details with related user and room information
+   */
+  async obtenerDetalleReservacion(idReservacion: number, idUsuario: number) {
+    try {
+      const reservacion = await this.prisma.reservaciones.findUnique({
+        where: { id: idReservacion },
+        include: {
+          usuario: {
+            select: {
+              nombre: true,
+              apellidos: true,
+              email: true,
+              departamento: {
+                select: {
+                  nombre: true,
+                },
+              },
+            },
+          },
+          sala: {
+            select: {
+              nombreSala: true,
+              ubicacion: true,
+              capacidadMax: true,
+              equiposSala: {
+                include: {
+                  tipoEquipo: {
+                    select: {
+                      nombre: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          equiposSolicitados: {
+            include: {
+              tipoEquipo: {
+                select: {
+                  nombre: true,
+                },
+              },
+            },
+          },
+          serviciosSolicitados: {
+            include: {
+              servicioAdicional: {
+                select: {
+                  nombre: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!reservacion) {
+        throw new BadRequestException('Reservación no encontrada');
+      }
+
+      // Check if user has access to this reservation
+      // User can access their own reservations or if they are admin/staff
+      const usuario = await this.prisma.usuarios.findUnique({
+        where: { id: idUsuario },
+        include: { rol: true },
+      });
+
+      const esAdmin = usuario?.rol.nombre === 'Administrador';
+      const esJefeDepartamento = usuario?.rol.nombre === 'Jefe de Departamento';
+      const esPropietario = reservacion.idUsuario === idUsuario;
+
+      if (!esPropietario && !esAdmin && !esJefeDepartamento) {
+        throw new BadRequestException('No tienes acceso a esta reservación');
+      }
+
+      // Format the data to match frontend expectations
+      const equipoRequerido = reservacion.equiposSolicitados
+        .map((eq) => eq.tipoEquipo.nombre)
+        .join(',');
+
+      const serviciosExtra = reservacion.serviciosSolicitados
+        .map((srv) => srv.servicioAdicional.nombre)
+        .join(',');
+
+      // Get sala piso from ubicacion (assuming format like "Edificio A, Piso 2")
+      const ubicacionParts = reservacion.sala.ubicacion?.split(',') || [];
+      const piso = ubicacionParts.length > 1 ? ubicacionParts[1].trim() : 'No especificado';
+
+      return {
+        id: reservacion.id,
+        numeroReservacion: reservacion.numeroReservacion,
+        nombreEvento: reservacion.nombreEvento,
+        fechaEvento: reservacion.fechaEvento.toISOString().split('T')[0],
+        horaInicio: reservacion.horaInicio.toTimeString().slice(0, 5),
+        horaFin: reservacion.horaFin.toTimeString().slice(0, 5),
+        estadoSolicitud: reservacion.estadoSolicitud,
+        numeroAsistentesEstimado: reservacion.numeroAsistentesEstimado,
+        fechaCreacionSolicitud: reservacion.fechaCreacionSolicitud.toISOString(),
+        linkReunionOnline: reservacion.linkReunionOnline,
+        observaciones: reservacion.observaciones,
+        equipoRequerido: equipoRequerido || null,
+        serviciosExtra: serviciosExtra || null,
+        usuario: {
+          nombre: reservacion.usuario.nombre,
+          apellido: reservacion.usuario.apellidos,
+          email: reservacion.usuario.email,
+          departamento: reservacion.usuario.departamento?.nombre || 'No especificado',
+        },
+        sala: {
+          nombreSala: reservacion.sala.nombreSala,
+          ubicacion: reservacion.sala.ubicacion || 'No especificado',
+          piso: piso,
+          capacidad: reservacion.sala.capacidadMax,
+        },
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Error al obtener detalles de la reservación: ' + error.message,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

@@ -9,6 +9,8 @@ import {
   ParseIntPipe,
   Patch,
   Query,
+  Request,
+  UseGuards,
 } from '@nestjs/common';
 import { ReservacionesService } from './reservaciones.service';
 import { CreateReservacioneDto } from './dto/create-reservacione.dto';
@@ -18,11 +20,13 @@ import {
   ApiParam,
   ApiResponse,
   getSchemaPath,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { respuestaGenerica } from 'src/salas/dto/respuesta-generica.dto';
 import { UpdateReservacioneDto } from './dto/update-reservacione.dto';
 import { FindReservacionesByDateDto } from './dto/find-reservaciones-by-date.dto';
 import { SolicitudAprobacion, AccionAprobacion } from '../types';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('reservaciones')
 export class ReservacionesController {
@@ -627,5 +631,80 @@ export class ReservacionesController {
   })
   async procesarAprobacion(@Body() accionDto: AccionAprobacion) {
     return await this.reservacionesService.procesarAprobacion(accionDto);
+  }
+
+  @Get('/reservacion/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Obtener detalles de una reservación específica',
+    description: 'Obtiene los detalles completos de una reservación por su ID. Requiere autenticación.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'ID de la reservación',
+    required: true,
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Detalles de la reservación encontrada',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'number' },
+        numeroReservacion: { type: 'string' },
+        nombreEvento: { type: 'string' },
+        fechaEvento: { type: 'string', format: 'date' },
+        horaInicio: { type: 'string' },
+        horaFin: { type: 'string' },
+        estadoSolicitud: { type: 'string' },
+        numeroAsistentesEstimado: { type: 'number' },
+        fechaCreacionSolicitud: { type: 'string', format: 'date-time' },
+        linkReunionOnline: { type: 'string', nullable: true },
+        observaciones: { type: 'string', nullable: true },
+        equipoRequerido: { type: 'string', nullable: true },
+        serviciosExtra: { type: 'string', nullable: true },
+        usuario: {
+          type: 'object',
+          properties: {
+            nombre: { type: 'string' },
+            apellido: { type: 'string' },
+            email: { type: 'string' },
+            departamento: { type: 'string' },
+          },
+        },
+        sala: {
+          type: 'object',
+          properties: {
+            nombreSala: { type: 'string' },
+            ubicacion: { type: 'string' },
+            piso: { type: 'string' },
+            capacidad: { type: 'number' },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Reservación no encontrada o sin acceso',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token no válido o expirado',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Error interno del servidor',
+  })
+  async obtenerDetalleReservacion(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+  ) {
+    // Get user ID from JWT token payload
+    const idUsuario = req.user.userId;
+    
+    return await this.reservacionesService.obtenerDetalleReservacion(id, idUsuario);
   }
 }
