@@ -635,6 +635,9 @@ export class ReservacionesService {
         estadoSolicitud: true,
         horaInicio: true,
         horaFin: true,
+        numeroAsistentesEstimado: true,
+        fechaCreacionSolicitud: true,
+        observaciones: true,
       },
       where: {
         idUsuario: idUsuario,
@@ -667,6 +670,9 @@ export class ReservacionesService {
         nombreSala: sala ? sala.nombreSala : 'Sala no encontrada',
         fechaEvento: reservacion.fechaEvento,
         estadoSolicitud: reservacion.estadoSolicitud,
+        numeroAsistentesEstimado: reservacion.numeroAsistentesEstimado,
+        fechaCreacionSolicitud: reservacion.fechaCreacionSolicitud,
+        observaciones: reservacion.observaciones,
         horaInicio: (() => {
           const date =
             reservacion.horaInicio instanceof Date
@@ -698,6 +704,9 @@ export class ReservacionesService {
       estadoActual: reservacion.estadoSolicitud,
       horaInicio: reservacion.horaInicio,
       horaFin: reservacion.horaFin,
+      numeroAsistentesEstimado: reservacion.numeroAsistentesEstimado,
+      fechaCreacionSolicitud: reservacion.fechaCreacionSolicitud,
+      observaciones: reservacion.observaciones,
     }));
   }
 

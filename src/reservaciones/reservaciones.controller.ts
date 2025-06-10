@@ -295,7 +295,7 @@ export class ReservacionesController {
           idSala: 2,
           idUsuario: 1,
           nombreEvento: 'Conferencia de Tecnología 2025',
-          tipoEvento: 'CONFERENCIA',
+          tipoEvento: 'Conferencia',
           fechaEvento: '2025-08-15',
           horaInicio: '09:00',
           horaFin: '17:30',
