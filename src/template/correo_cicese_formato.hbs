@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>{{#if esAprobacion}}Solicitud de Aprobación{{else if esTecnico}}Asignación Técnica{{else if esConfirmacionFinal}}Reservación Confirmada{{else}}Solicitud de Reservación{{/if}}</title>
+  <title>{{#if esAprobacion}}Solicitud de Aprobación Técnica{{else if esTecnico}}Asignación Técnica{{else if esConfirmacionFinal}}Reservación Confirmada{{else}}Solicitud de Reservación{{/if}}</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -92,10 +92,13 @@
 <body>
   <div class="container">
     {{#if esAprobacion}}
-      <h1>📋 Solicitud de Aprobación de Reservación</h1>
+      <h1>🔧 Solicitud de Aprobación Técnica</h1>
       <div class="info-box">
-        <p><strong>Estimado/a {{responsableAprobacion}},</strong></p>
-        <p>Se ha recibido una nueva solicitud de reservación que requiere su aprobación:</p>
+        <p><strong>Estimado/a {{nombreTecnico}},</strong></p>
+        <p>Se ha recibido una nueva solicitud de reservación que requiere su aprobación técnica:</p>
+        {{#if especialidadRequerida}}
+        <p><strong>Especialidad requerida:</strong> {{especialidadRequerida}}</p>
+        {{/if}}
       </div>
     {{else if esTecnico}}
       <h1>🔧 Asignación Técnica - Reservación Confirmada</h1>
@@ -154,11 +157,12 @@
 
     {{#if esAprobacion}}
     <div class="section">
-      <h2>⚡ Acciones Requeridas</h2>
+      <h2>⚡ Aprobación Técnica Requerida</h2>
       <p><strong>Fecha límite para aprobación:</strong> {{fechaLimite}}</p>
+      <p>Como técnico responsable, por favor revise los requerimientos técnicos y confirme la disponibilidad de equipos y recursos necesarios.</p>
       <div class="approval-buttons">
-        <a href="{{linkAprobacion}}" class="btn-approve">✅ Aprobar Reservación</a>
-        <a href="{{linkRechazo}}" class="btn-reject">❌ Rechazar Reservación</a>
+        <a href="{{linkAprobacion}}" class="btn-approve">✅ Aprobar Técnicamente</a>
+        <a href="{{linkRechazo}}" class="btn-reject">❌ Rechazar por Motivos Técnicos</a>
       </div>
     </div>
     {{/if}}
@@ -172,7 +176,8 @@
 
     <div class="footer">
       {{#if esAprobacion}}
-        <p>Por favor, procese esta solicitud lo antes posible. El evento está programado para {{fecha}}.</p>
+        <p>Por favor, evalúe los aspectos técnicos de esta solicitud lo antes posible. El evento está programado para {{fecha}}.</p>
+        <p>Su aprobación técnica es necesaria para confirmar que todos los equipos y recursos estarán disponibles.</p>
       {{else if esTecnico}}
         <p>Contacte al solicitante si necesita más información sobre los requerimientos técnicos.</p>
       {{else if esConfirmacionFinal}}

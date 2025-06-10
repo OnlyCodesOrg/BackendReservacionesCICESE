@@ -116,7 +116,9 @@ export class AuthService {
     };
 
     const access_token = this.jwtService.sign(payload);
-    const new_refresh_token = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const new_refresh_token = this.jwtService.sign(payload, {
+      expiresIn: '7d',
+    });
 
     // Actualizar el refresh token
     this.refreshTokens.set(user.id, new_refresh_token);

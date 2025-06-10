@@ -79,9 +79,10 @@ export interface SolicitudAprobacion {
     nombre: string;
     ubicacion: string;
   };
-  departamentoResponsable: {
+  tecnicoResponsable: {
     id: number;
     nombre: string;
+    especialidad?: string;
   };
   observaciones?: string;
 }
@@ -90,5 +91,5 @@ export interface AccionAprobacion {
   numeroReservacion: string;
   accion: 'aprobar' | 'rechazar';
   motivo?: string;
-  idUsuarioAprobador: number;
+  idTecnicoAprobador: number;
 }

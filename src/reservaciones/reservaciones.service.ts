@@ -70,10 +70,50 @@ export class ReservacionesService {
         include: { departamento: true },
       });
 
-      const tecnico = await this.prisma.tecnicos.findUnique({
-        where: { id: sala?.idTecnicoResponsable },
-        include: { usuario: true },
-      });
+      let tecnico:
+        | ({
+            usuario: {
+              id: number;
+              activo: boolean;
+              nombre: string;
+              apellidos: string;
+              email: string;
+              contraseña: string;
+              id_rol: number;
+              id_departamento: number | null;
+            };
+          } & {
+            id: number;
+            idUsuario: number;
+            especialidad: string | null;
+            activo: boolean;
+          })
+        | null = null;
+      if (idTecnicoAsignado) {
+        // If a specific technician is assigned, use that one
+        tecnico = await this.prisma.tecnicos.findUnique({
+          where: { id: idTecnicoAsignado },
+          include: { usuario: true },
+        });
+      } else if (sala?.idTecnicoResponsable) {
+        // Otherwise, use the room's responsible technician
+        tecnico = await this.prisma.tecnicos.findUnique({
+          where: { id: sala.idTecnicoResponsable },
+          include: { usuario: true },
+        });
+      }
+
+      console.log(
+        `Creando reservación para usuario ${usuario?.nombre} en sala ${sala?.nombreSala}`,
+      );
+
+      console.log(
+        `Detalles de la reservación: Evento: ${nombreEvento}, Tipo: ${tipoEvento}, Fecha: ${fechaEvento}, Hora Inicio: ${horaInicio}, Hora Fin: ${horaFin}, Asistentes: ${asistentes}`,
+      );
+
+      console.log(`Técnico asignado: ${tecnico?.usuario?.nombre || 'Ninguno'}`);
+
+      console.log('Técnico objeto completo:', tecnico); // Add this debug log
 
       if (!sala || !usuario) {
         throw new Error('Error con la consulta de usuario o sala');
@@ -100,12 +140,25 @@ export class ReservacionesService {
       // Send pending confirmation email to user
       if (usuario) {
         await this.enviarConfirmacionPendiente(usuario, createDto, sala);
+        console.log(
+          `Confirmación pendiente enviada a ${usuario.nombre} para la reservación ${nueva.numeroReservacion}`,
+        );
       }
 
-      // Send approval request to responsible department
-      await this.enviarSolicitudAprobacion(nueva, usuario, sala);
-
-      // Note: Do NOT send notification to technician yet - only after approval
+      // Send approval request to technician instead of notification
+      if (tecnico && tecnico.usuario) {
+        console.log(
+          `Enviando solicitud de aprobación al técnico ${tecnico.usuario.nombre}...`,
+        );
+        await this.enviarSolicitudAprobacion(nueva, usuario, sala, tecnico);
+        console.log(
+          `Solicitud de aprobación enviada al técnico ${tecnico.usuario.nombre} para la reservación ${nueva.numeroReservacion}`,
+        );
+      } else {
+        console.log(
+          'No se encontró técnico válido para enviar solicitud de aprobación',
+        );
+      }
 
       return nueva;
     } catch (e) {
@@ -116,9 +169,14 @@ export class ReservacionesService {
   }
 
   /**
-   * Sends approval request email to the responsible department
+   * Sends approval request email to the responsible technician
    */
-  async enviarSolicitudAprobacion(reservacion: any, usuario: any, sala: any) {
+  async enviarSolicitudAprobacion(
+    reservacion: any,
+    usuario: any,
+    sala: any,
+    tecnico?: any,
+  ) {
     try {
       if (!this.resend) {
         console.log(
@@ -127,24 +185,17 @@ export class ReservacionesService {
         return;
       }
 
-      // Get responsible users for the department
-      const responsables = await this.prisma.usuarios.findMany({
-        where: {
-          OR: [
-            {
-              AND: [
-                { id_rol: 4 }, // Jefe de Departamento
-                { id_departamento: sala.idDepartamento },
-              ],
-            },
-          ],
-        },
-        include: { departamento: true },
-      });
+      // If no technician provided, get the room's responsible technician
+      if (!tecnico) {
+        tecnico = await this.prisma.tecnicos.findUnique({
+          where: { id: sala.idTecnicoResponsable },
+          include: { usuario: true },
+        });
+      }
 
-      if (responsables.length === 0) {
+      if (!tecnico || !tecnico.usuario) {
         console.log(
-          'No se encontraron responsables para aprobar la reservación',
+          'No se encontró técnico responsable para aprobar la reservación',
         );
         return;
       }
@@ -162,45 +213,47 @@ export class ReservacionesService {
       const fechaLimite = new Date(reservacion.fechaEvento);
       fechaLimite.setDate(fechaLimite.getDate() - 1); // 1 day before event
 
-      for (const responsable of responsables) {
-        const htmlContent = template({
-          esAprobacion: true,
-          responsableAprobacion: responsable.nombre,
-          numeroReservacion: reservacion.numeroReservacion,
-          nombreEvento: reservacion.nombreEvento,
-          tipo: reservacion.tipoEvento,
-          fecha: reservacion.fechaEvento,
-          horaInicio: reservacion.horaInicio,
-          horaFin: reservacion.horaFin,
-          participantes: reservacion.numeroAsistentesEstimado,
-          solicitante: usuario.nombre,
-          departamento: usuario.departamento?.nombre || 'N/A',
-          emailSolicitante: usuario.email,
-          nombreSala: sala.nombreSala,
-          ubicacionSala: sala.ubicacion || 'Edificio principal',
-          observaciones: reservacion.observaciones,
-          linkAprobacion: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/aprobar-reservacion?token=${reservacion.numeroReservacion}&accion=aprobar`,
-          linkRechazo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/aprobar-reservacion?token=${reservacion.numeroReservacion}&accion=rechazar`,
-          fechaLimite: fechaLimite.toLocaleDateString('es-ES'),
-        });
+      const htmlContent = template({
+        esAprobacion: true,
+        nombreTecnico: tecnico.usuario.nombre,
+        especialidadRequerida: tecnico.especialidad,
+        numeroReservacion: reservacion.numeroReservacion,
+        nombreEvento: reservacion.nombreEvento,
+        tipo: reservacion.tipoEvento,
+        fecha: reservacion.fechaEvento,
+        horaInicio: reservacion.horaInicio,
+        horaFin: reservacion.horaFin,
+        participantes: reservacion.numeroAsistentesEstimado,
+        solicitante: usuario.nombre,
+        departamento: usuario.departamento?.nombre || 'N/A',
+        emailSolicitante: usuario.email,
+        nombreSala: sala.nombreSala,
+        ubicacionSala: sala.ubicacion || 'Edificio principal',
+        observaciones: reservacion.observaciones,
+        linkAprobacion: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/aprobar-reservacion?token=${reservacion.numeroReservacion}&accion=aprobar&tipo=tecnico`,
+        linkRechazo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/aprobar-reservacion?token=${reservacion.numeroReservacion}&accion=rechazar&tipo=tecnico`,
+        fechaLimite: fechaLimite.toLocaleDateString('es-ES'),
+      });
 
-        await this.resend.emails.send({
-          from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
-          to: responsable.email,
-          subject: `Solicitud de Aprobación - ${reservacion.nombreEvento}`,
-          html: htmlContent,
-        });
-      }
+      await this.resend.emails.send({
+        from: process.env.SEND_EMAIL_FROM || 'telematica@isyte.dev',
+        to: tecnico.usuario.email,
+        subject: `🔧 Solicitud de Aprobación Técnica - ${reservacion.nombreEvento}`,
+        html: htmlContent,
+      });
     } catch (error) {
-      console.error('Error al enviar email de aprobación:', error.message);
+      console.error(
+        'Error al enviar email de aprobación técnica:',
+        error.message,
+      );
     }
   }
 
   /**
-   * Approve or reject a reservation
+   * Approve or reject a reservation (updated for technician approval)
    */
   async procesarAprobacion(accionDto: AccionAprobacion) {
-    const { numeroReservacion, accion, motivo, idUsuarioAprobador } = accionDto;
+    const { numeroReservacion, accion, motivo, idTecnicoAprobador } = accionDto;
 
     try {
       const reservacion = await this.prisma.reservaciones.findUnique({
@@ -219,24 +272,24 @@ export class ReservacionesService {
         throw new BadRequestException('La reservación ya ha sido procesada');
       }
 
-      // Verify approver has permission
-      const aprobador = await this.prisma.usuarios.findUnique({
-        where: { id: idUsuarioAprobador },
-        include: { rol: true },
+      // Verify technician has permission
+      const tecnico = await this.prisma.tecnicos.findUnique({
+        where: { id: idTecnicoAprobador },
+        include: { usuario: true },
       });
 
-      if (!aprobador) {
-        throw new BadRequestException('Usuario aprobador no encontrado');
+      if (!tecnico) {
+        throw new BadRequestException('Técnico aprobador no encontrado');
       }
 
+      // Check if technician is authorized for this room
       const puedeAprobar =
-        aprobador.id_rol === 1 || // Admin
-        (aprobador.id_rol === 4 &&
-          aprobador.id_departamento === reservacion.sala.idDepartamento); // Jefe del departamento responsable
+        reservacion.sala.idTecnicoResponsable === idTecnicoAprobador ||
+        tecnico.usuario.id_rol === 1; // Admin can also approve
 
       if (!puedeAprobar) {
         throw new BadRequestException(
-          'No tiene permisos para aprobar esta reservación',
+          'No tiene permisos técnicos para aprobar esta reservación',
         );
       }
 
@@ -248,7 +301,7 @@ export class ReservacionesService {
         data: {
           estadoSolicitud: nuevoEstado,
           fechaUltimaModificacion: new Date(),
-          idUsuarioUltimaModificacion: idUsuarioAprobador,
+          idUsuarioUltimaModificacion: tecnico.usuario.id,
         },
       });
 
@@ -256,12 +309,13 @@ export class ReservacionesService {
       await this.prisma.historialReservaciones.create({
         data: {
           idReservacion: reservacion.id,
-          accionRealizada: accion === 'aprobar' ? 'Aprobación' : 'Rechazo',
-          idUsuario: idUsuarioAprobador,
+          accionRealizada:
+            accion === 'aprobar' ? 'Aprobación Técnica' : 'Rechazo Técnico',
+          idUsuario: tecnico.usuario.id,
           fechaAccion: new Date(),
           detalles:
             motivo ||
-            `Reservación ${accion === 'aprobar' ? 'aprobada' : 'rechazada'} por ${aprobador.nombre}`,
+            `Reservación ${accion === 'aprobar' ? 'aprobada técnicamente' : 'rechazada por motivos técnicos'} por ${tecnico.usuario.nombre}`,
         },
       });
 
@@ -269,12 +323,12 @@ export class ReservacionesService {
       await this.enviarNotificacionDecision(reservacion, accion, motivo);
 
       return {
-        message: `Reservación ${accion === 'aprobar' ? 'aprobada' : 'rechazada'} exitosamente`,
+        message: `Reservación ${accion === 'aprobar' ? 'aprobada técnicamente' : 'rechazada por motivos técnicos'} exitosamente`,
         data: reservacionActualizada,
       };
     } catch (error) {
       throw new BadRequestException(
-        `Error al procesar aprobación: ${error.message}`,
+        `Error al procesar aprobación técnica: ${error.message}`,
       );
     }
   }
@@ -460,7 +514,7 @@ export class ReservacionesService {
   }
 
   /**
-   * Get pending approval requests for a user
+   * Get pending approval requests for a technician
    */
   async obtenerSolicitudesPendientes(
     idUsuario: number,
@@ -479,21 +533,35 @@ export class ReservacionesService {
 
     if (usuario.id_rol === 1) {
       // Admin can see all pending requests
-    } else if (usuario.id_rol === 4) {
-      // Department head can only see requests for their department's rooms
-      whereCondition.sala = {
-        idDepartamento: usuario.id_departamento,
-      };
     } else {
-      // Regular users can't see approval requests
-      return [];
+      // Get technician record for this user
+      const tecnico = await this.prisma.tecnicos.findFirst({
+        where: { idUsuario: idUsuario },
+      });
+
+      if (!tecnico) {
+        // User is not a technician, return empty array
+        return [];
+      }
+
+      // Technician can only see requests for rooms they are responsible for
+      whereCondition.sala = {
+        idTecnicoResponsable: tecnico.id,
+      };
     }
 
     const solicitudes = await this.prisma.reservaciones.findMany({
       where: whereCondition,
       include: {
         usuario: { include: { departamento: true } },
-        sala: { include: { departamento: true } },
+        sala: {
+          include: {
+            departamento: true,
+            tecnicoResponsable: {
+              include: { usuario: true },
+            },
+          },
+        },
       },
       orderBy: { fechaCreacionSolicitud: 'desc' },
     });
@@ -515,9 +583,11 @@ export class ReservacionesService {
         nombre: reservacion.sala.nombreSala,
         ubicacion: reservacion.sala.ubicacion || 'N/A',
       },
-      departamentoResponsable: {
-        id: reservacion.sala.departamento?.id || 0,
-        nombre: reservacion.sala.departamento?.nombre || 'N/A',
+      tecnicoResponsable: {
+        id: reservacion.sala.tecnicoResponsable?.id || 0,
+        nombre: reservacion.sala.tecnicoResponsable?.usuario.nombre || 'N/A',
+        especialidad:
+          reservacion.sala.tecnicoResponsable?.especialidad || undefined,
       },
       observaciones: reservacion.observaciones ?? undefined,
     }));
@@ -927,7 +997,10 @@ export class ReservacionesService {
 
       // Get sala piso from ubicacion (assuming format like "Edificio A, Piso 2")
       const ubicacionParts = reservacion.sala.ubicacion?.split(',') || [];
-      const piso = ubicacionParts.length > 1 ? ubicacionParts[1].trim() : 'No especificado';
+      const piso =
+        ubicacionParts.length > 1
+          ? ubicacionParts[1].trim()
+          : 'No especificado';
 
       return {
         id: reservacion.id,
@@ -938,7 +1011,8 @@ export class ReservacionesService {
         horaFin: reservacion.horaFin.toTimeString().slice(0, 5),
         estadoSolicitud: reservacion.estadoSolicitud,
         numeroAsistentesEstimado: reservacion.numeroAsistentesEstimado,
-        fechaCreacionSolicitud: reservacion.fechaCreacionSolicitud.toISOString(),
+        fechaCreacionSolicitud:
+          reservacion.fechaCreacionSolicitud.toISOString(),
         linkReunionOnline: reservacion.linkReunionOnline,
         observaciones: reservacion.observaciones,
         equipoRequerido: equipoRequerido || null,
@@ -947,7 +1021,8 @@ export class ReservacionesService {
           nombre: reservacion.usuario.nombre,
           apellido: reservacion.usuario.apellidos,
           email: reservacion.usuario.email,
-          departamento: reservacion.usuario.departamento?.nombre || 'No especificado',
+          departamento:
+            reservacion.usuario.departamento?.nombre || 'No especificado',
         },
         sala: {
           nombreSala: reservacion.sala.nombreSala,

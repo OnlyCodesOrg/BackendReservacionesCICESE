@@ -515,19 +515,19 @@ export class ReservacionesController {
 
   @Get('/solicitudes-pendientes/:idUsuario')
   @ApiOperation({
-    summary: 'Obtener solicitudes pendientes de aprobación',
+    summary: 'Obtener solicitudes pendientes de aprobación técnica',
     description:
-      'Obtiene las solicitudes de reservación pendientes que el usuario puede aprobar según su rol',
+      'Obtiene las solicitudes de reservación pendientes que el técnico puede aprobar según las salas asignadas',
   })
   @ApiParam({
     name: 'idUsuario',
     description:
-      'ID del usuario que solicita las pendientes (debe ser admin o jefe de departamento)',
+      'ID del usuario que solicita las pendientes (debe ser técnico responsable de salas)',
     required: true,
   })
   @ApiResponse({
     status: 200,
-    description: 'Lista de solicitudes pendientes',
+    description: 'Lista de solicitudes pendientes de aprobación técnica',
     schema: {
       type: 'array',
       items: {
@@ -545,6 +545,14 @@ export class ReservacionesController {
               departamento: { type: 'string' },
             },
           },
+          tecnicoResponsable: {
+            type: 'object',
+            properties: {
+              id: { type: 'number' },
+              nombre: { type: 'string' },
+              especialidad: { type: 'string' },
+            },
+          },
         },
       },
     },
@@ -558,12 +566,12 @@ export class ReservacionesController {
 
   @Post('/procesar-aprobacion')
   @ApiOperation({
-    summary: 'Aprobar o rechazar una reservación',
+    summary: 'Aprobar o rechazar una reservación (aprobación técnica)',
     description:
-      'Permite a un usuario autorizado aprobar o rechazar una solicitud de reservación',
+      'Permite a un técnico autorizado aprobar o rechazar una solicitud de reservación por motivos técnicos',
   })
   @ApiBody({
-    description: 'Datos para procesar la aprobación',
+    description: 'Datos para procesar la aprobación técnica',
     schema: {
       type: 'object',
       properties: {
@@ -578,38 +586,38 @@ export class ReservacionesController {
         },
         motivo: {
           type: 'string',
-          description: 'Motivo del rechazo (opcional)',
+          description: 'Motivo del rechazo técnico (opcional)',
         },
-        idUsuarioAprobador: {
+        idTecnicoAprobador: {
           type: 'number',
-          description: 'ID del usuario que aprueba/rechaza',
+          description: 'ID del técnico que aprueba/rechaza',
         },
       },
-      required: ['numeroReservacion', 'accion', 'idUsuarioAprobador'],
+      required: ['numeroReservacion', 'accion', 'idTecnicoAprobador'],
     },
     examples: {
       aprobar: {
-        summary: 'Aprobar reservación',
+        summary: 'Aprobar reservación técnicamente',
         value: {
           numeroReservacion: 'RES-20250603-002',
           accion: 'aprobar',
-          idUsuarioAprobador: 1,
+          idTecnicoAprobador: 1,
         },
       },
       rechazar: {
-        summary: 'Rechazar reservación',
+        summary: 'Rechazar reservación por motivos técnicos',
         value: {
           numeroReservacion: 'RES-20250603-002',
           accion: 'rechazar',
-          motivo: 'Conflicto con otro evento programado',
-          idUsuarioAprobador: 1,
+          motivo: 'Equipos necesarios no disponibles en la fecha solicitada',
+          idTecnicoAprobador: 1,
         },
       },
     },
   })
   @ApiResponse({
     status: 200,
-    description: 'Aprobación procesada exitosamente',
+    description: 'Aprobación técnica procesada exitosamente',
     schema: {
       type: 'object',
       properties: {
@@ -623,11 +631,11 @@ export class ReservacionesController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Error en el formato de las fechas proporcionadas',
+    description: 'Error en el formato de los datos proporcionados',
   })
   @ApiResponse({
     status: 403,
-    description: 'No tiene permisos para aprobar esta reservación',
+    description: 'No tiene permisos técnicos para aprobar esta reservación',
   })
   async procesarAprobacion(@Body() accionDto: AccionAprobacion) {
     return await this.reservacionesService.procesarAprobacion(accionDto);
@@ -638,7 +646,8 @@ export class ReservacionesController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Obtener detalles de una reservación específica',
-    description: 'Obtiene los detalles completos de una reservación por su ID. Requiere autenticación.',
+    description:
+      'Obtiene los detalles completos de una reservación por su ID. Requiere autenticación.',
   })
   @ApiParam({
     name: 'id',
@@ -704,7 +713,10 @@ export class ReservacionesController {
   ) {
     // Get user ID from JWT token payload
     const idUsuario = req.user.userId;
-    
-    return await this.reservacionesService.obtenerDetalleReservacion(id, idUsuario);
+
+    return await this.reservacionesService.obtenerDetalleReservacion(
+      id,
+      idUsuario,
+    );
   }
 }
