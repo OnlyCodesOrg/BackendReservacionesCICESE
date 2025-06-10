@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { CreateParticipantesAdDto } from './dto/create-participantes-ad.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma } from 'generated/prisma';
+import { Prisma } from '@prisma/client';
 import { throwError } from 'rxjs';
 /**
  * @description Servicio para manejar los participantes de anuncios

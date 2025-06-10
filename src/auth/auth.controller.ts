@@ -20,6 +20,7 @@ import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto, ProfileResponseDto } from './dto/auth-response.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('Autenticación')
 @Controller('auth')
@@ -46,15 +47,6 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Request() req, @Body() loginDto: LoginDto) {
     const result = await this.authService.login(req.user);
-
-    if (!result.access_token) {
-      return {
-        success: false,
-        message: 'Credenciales inválidas',
-        data: null,
-      };
-    }
-
     return {
       success: true,
       message: 'Has iniciado sesión correctamente.',
@@ -85,5 +77,50 @@ export class AuthController {
       message: 'Perfil obtenido exitosamente',
       data: req.user,
     };
+  }
+
+  @ApiOperation({
+    summary: 'Refrescar token',
+    description:
+      'Obtiene un nuevo token de acceso utilizando el token de refresco.',
+  })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Token refrescado exitosamente',
+    type: AuthResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token de refresco inválido o expirado',
+  })
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  async refreshToken(@Request() req, @Body() refreshTokenDto: RefreshTokenDto) {
+    const result = await this.authService.refreshToken(
+      req.user.sub,
+      refreshTokenDto.refreshToken,
+    );
+    return {
+      success: true,
+      message: 'Token refrescado exitosamente',
+      data: result,
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Cerrar sesión',
+    description: 'Cierra la sesión del usuario actual invalidando sus tokens.',
+  })
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: 200,
+    description: 'Sesión cerrada exitosamente',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  async logout(@Request() req) {
+    return await this.authService.logout(req.user.sub);
   }
 }

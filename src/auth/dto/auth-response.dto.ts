@@ -35,21 +35,64 @@ export class AuthTokenDto {
   access_token: string;
 }
 
+class UserDto {
+  @ApiProperty({ example: 1 })
+  id: number;
+
+  @ApiProperty({ example: 'john.doe@example.com' })
+  email: string;
+
+  @ApiProperty({ example: 'John' })
+  nombre: string;
+
+  @ApiProperty({ example: 'Doe' })
+  apellidos: string;
+
+  @ApiProperty({ example: { id: 1, nombre: 'Administrador' } })
+  rol: {
+    id: number;
+    nombre: string;
+  };
+
+  @ApiProperty({ example: { id: 1, nombre: 'Departamento TI' } })
+  departamento?: {
+    id: number;
+    nombre: string;
+  } | null;
+}
+
 export class AuthResponseDto {
-  @ApiProperty({ example: true, description: 'Estado de la operación' })
+  @ApiProperty({ example: true })
   success: boolean;
 
-  @ApiProperty({
-    example: 'Has iniciado sesión correctamente.',
-    description: 'Mensaje descriptivo',
-  })
+  @ApiProperty({ example: 'Has iniciado sesión correctamente.' })
   message: string;
 
   @ApiProperty({
-    type: AuthTokenDto,
-    description: 'Datos del token de acceso y usuario',
+    example: {
+      access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+      refresh_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+      user: {
+        id: 1,
+        email: 'john.doe@example.com',
+        nombre: 'John',
+        apellidos: 'Doe',
+        rol: {
+          id: 1,
+          nombre: 'Administrador',
+        },
+        departamento: {
+          id: 1,
+          nombre: 'Departamento TI',
+        },
+      },
+    },
   })
-  data: AuthTokenDto;
+  data: {
+    access_token: string;
+    refresh_token: string;
+    user: UserDto;
+  };
 }
 
 export class UserProfileDto {
@@ -80,18 +123,28 @@ export class UserProfileDto {
 }
 
 export class ProfileResponseDto {
-  @ApiProperty({ example: true, description: 'Estado de la operación' })
-  status: boolean;
+  @ApiProperty({ example: true })
+  success: boolean;
 
-  @ApiProperty({
-    example: 'Perfil obtenido exitosamente',
-    description: 'Mensaje descriptivo',
-  })
+  @ApiProperty({ example: 'Perfil obtenido exitosamente' })
   message: string;
 
   @ApiProperty({
-    type: UserProfileDto,
-    description: 'Datos del perfil del usuario',
+    example: {
+      sub: 1,
+      email: 'john.doe@example.com',
+      idRol: 1,
+      nombre: 'John',
+      apellidos: 'Doe',
+      id_departamento: 1,
+    },
   })
-  data: UserProfileDto;
+  data: {
+    sub: number;
+    email: string;
+    idRol: number;
+    nombre: string;
+    apellidos: string;
+    id_departamento?: number | null;
+  };
 }

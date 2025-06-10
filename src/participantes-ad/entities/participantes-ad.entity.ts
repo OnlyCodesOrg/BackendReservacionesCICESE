@@ -1,4 +1,3 @@
-import { PartcipantesAdicionales as modelo } from 'generated/prisma';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ParticipantesAd {

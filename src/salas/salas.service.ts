@@ -19,7 +19,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ActualizarElementoInventarioDto } from './dto/actualizar-inventario.dto';
 import { actualizarEquipo } from './dto/actualizar-equipo.dto';
 import { respuestaGenerica } from './dto/respuesta-generica.dto';
-import { EstadoEquipo, Salas } from 'generated/prisma';
+import { EstadoEquipo } from 'generated/prisma';
 import { EquipoSala } from 'src/entities/EquipoSala.entity';
 
 @Injectable()
