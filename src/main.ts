@@ -16,8 +16,16 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
+  const allowedOrigins =
+    process.env.NODE_ENV === 'production'
+      ? [
+          'https://app-reservaciones-cicese.ambitioussea-007d0918.westus3.azurecontainerapps.io',
+          'https://cicese.isyte.dev',
+        ]
+      : ['http://localhost:3000', 'http://localhost:3001'];
+
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:3001', '*'],
+    origin: allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
