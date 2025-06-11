@@ -534,6 +534,8 @@ export class ReservacionesController {
         type: 'object',
         properties: {
           id: { type: 'number' },
+          participantes: { type: 'number' },
+          estadoSolicitud: { type: 'string' },
           numeroReservacion: { type: 'string' },
           nombreEvento: { type: 'string' },
           fechaEvento: { type: 'string', format: 'date-time' },

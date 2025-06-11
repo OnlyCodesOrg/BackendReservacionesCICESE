@@ -527,9 +527,10 @@ export class ReservacionesService {
     if (!usuario) {
       throw new BadRequestException('Usuario no encontrado');
     }
-
     // Build where condition based on user role
-    const whereCondition: any = { estadoSolicitud: 'Pendiente' };
+    const whereCondition: any = {
+      estadoSolicitud: { in: ['Pendiente', 'Aprobada', 'Rechazada'] },
+    };
 
     if (usuario.id_rol === 1) {
       // Admin can see all pending requests
@@ -568,6 +569,8 @@ export class ReservacionesService {
 
     return solicitudes.map((reservacion) => ({
       id: reservacion.id,
+      participantes: reservacion.numeroAsistentesEstimado,
+      estadoSolicitud: reservacion.estadoSolicitud,
       numeroReservacion: reservacion.numeroReservacion,
       nombreEvento: reservacion.nombreEvento,
       tipoEvento: reservacion.tipoEvento,
