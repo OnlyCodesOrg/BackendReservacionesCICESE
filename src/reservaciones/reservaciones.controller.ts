@@ -514,6 +514,8 @@ export class ReservacionesController {
   }
 
   @Get('/solicitudes-pendientes/:idUsuario')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Obtener solicitudes pendientes de aprobación técnica',
     description:
@@ -567,6 +569,8 @@ export class ReservacionesController {
   }
 
   @Post('/procesar-aprobacion')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Aprobar o rechazar una reservación (aprobación técnica)',
     description:
@@ -713,12 +717,25 @@ export class ReservacionesController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req: any,
   ) {
-    // Get user ID from JWT token payload
-    const idUsuario = req.user.userId;
+    console.log('=== obtenerDetalleReservacion llamado ===');
+    console.log('ID recibido:', id, 'Tipo:', typeof id);
+    console.log('Usuario del token:', req.user);
+    
+    try {
+      // Get user ID from JWT token payload
+      const idUsuario = req.user.userId;
+      console.log('ID del usuario:', idUsuario);
 
-    return await this.reservacionesService.obtenerDetalleReservacion(
-      id,
-      idUsuario,
-    );
+      const resultado = await this.reservacionesService.obtenerDetalleReservacion(
+        id,
+        idUsuario,
+      );
+      
+      console.log('Resultado obtenido exitosamente');
+      return resultado;
+    } catch (error) {
+      console.error('Error en obtenerDetalleReservacion:', error);
+      throw error;
+    }
   }
 }

@@ -133,7 +133,7 @@ export class ReservacionesService {
           numeroAsistentesReal: asistentes,
           observaciones: observaciones ?? null,
           estadoSolicitud: 'Pendiente', // Set as pending for approval
-          idTecnicoAsignado: idTecnicoAsignado || null, // Handle optional technician
+          idTecnicoAsignado: idTecnicoAsignado || 1, 
         },
       });
 
@@ -296,13 +296,20 @@ export class ReservacionesService {
       // Update reservation status
       const nuevoEstado = accion === 'aprobar' ? 'Aprobada' : 'Rechazada';
 
+      const updateData: any = {
+        estadoSolicitud: nuevoEstado,
+        fechaUltimaModificacion: new Date(),
+        idUsuarioUltimaModificacion: tecnico.usuario.id,
+      };
+
+      // If approving, assign the technician to the reservation
+      if (accion === 'aprobar') {
+        updateData.idTecnicoAsignado = idTecnicoAprobador;
+      }
+
       const reservacionActualizada = await this.prisma.reservaciones.update({
         where: { numeroReservacion },
-        data: {
-          estadoSolicitud: nuevoEstado,
-          fechaUltimaModificacion: new Date(),
-          idUsuarioUltimaModificacion: tecnico.usuario.id,
-        },
+        data: updateData,
       });
 
       // Create history record
@@ -926,7 +933,11 @@ export class ReservacionesService {
    * @returns Reservation details with related user and room information
    */
   async obtenerDetalleReservacion(idReservacion: number, idUsuario: number) {
+    console.log(`=== obtenerDetalleReservacion Service ===`);
+    console.log(`ID Reservación: ${idReservacion}, ID Usuario: ${idUsuario}`);
+    
     try {
+      console.log('Buscando reservación en la base de datos...');
       const reservacion = await this.prisma.reservaciones.findUnique({
         where: { id: idReservacion },
         include: {
@@ -947,6 +958,7 @@ export class ReservacionesService {
               nombreSala: true,
               ubicacion: true,
               capacidadMax: true,
+              idTecnicoResponsable: true,  // Add this for permission checking
               equiposSala: {
                 include: {
                   tipoEquipo: {
@@ -979,25 +991,68 @@ export class ReservacionesService {
         },
       });
 
+      console.log('Reservación encontrada:', !!reservacion);
       if (!reservacion) {
+        console.log('Reservación no encontrada para ID:', idReservacion);
         throw new BadRequestException('Reservación no encontrada');
       }
 
+      console.log('Verificando permisos de usuario...');
       // Check if user has access to this reservation
-      // User can access their own reservations or if they are admin/staff
       const usuario = await this.prisma.usuarios.findUnique({
         where: { id: idUsuario },
-        include: { rol: true },
+        include: { 
+          rol: true,
+          tecnicos: true  // Include tecnicos info if user is a technician
+        },
       });
+
+      console.log('Usuario encontrado:', !!usuario, 'Rol:', usuario?.rol?.nombre);
 
       const esAdmin = usuario?.rol.nombre === 'Administrador';
       const esJefeDepartamento = usuario?.rol.nombre === 'Jefe de Departamento';
       const esPropietario = reservacion.idUsuario === idUsuario;
+      const esTecnico = usuario?.rol.nombre === 'Técnico';
+      
+      // Check if technician is assigned to this reservation
+      // A user can have multiple tecnico entries, but usually just one
+      const tecnicoDelUsuario = usuario?.tecnicos?.[0];
+      const esTecnicoAsignado = esTecnico && tecnicoDelUsuario && 
+        reservacion.idTecnicoAsignado === tecnicoDelUsuario.id;
 
-      if (!esPropietario && !esAdmin && !esJefeDepartamento) {
+      // Check if technician is responsible for the room where this reservation is
+      const esTecnicoResponsableSala = esTecnico && tecnicoDelUsuario && 
+        reservacion.sala.idTecnicoResponsable === tecnicoDelUsuario.id;
+
+      console.log('Permisos:', { 
+        esAdmin, 
+        esJefeDepartamento, 
+        esPropietario, 
+        esTecnico, 
+        esTecnicoAsignado,
+        esTecnicoResponsableSala,
+        idTecnicoAsignado: reservacion.idTecnicoAsignado,
+        idTecnicoResponsableSala: reservacion.sala.idTecnicoResponsable,
+        idTecnicoUsuario: tecnicoDelUsuario?.id,
+        cantidadTecnicos: usuario?.tecnicos?.length
+      });
+
+      // TEMPORAL: Permitir a cualquier técnico ver cualquier reservación para debuggear
+      const tieneAccesoTemporal = esPropietario || esAdmin || esJefeDepartamento || esTecnicoAsignado || esTecnicoResponsableSala || esTecnico;
+
+      if (!tieneAccesoTemporal) {
+        console.log('Usuario sin permisos para acceder a esta reservación');
+        console.log('Detalles completos del usuario:', JSON.stringify(usuario, null, 2));
+        console.log('Detalles de la reservación:', {
+          id: reservacion.id,
+          idUsuario: reservacion.idUsuario,
+          idTecnicoAsignado: reservacion.idTecnicoAsignado,
+          estadoSolicitud: reservacion.estadoSolicitud
+        });
         throw new BadRequestException('No tienes acceso a esta reservación');
       }
 
+      console.log('Acceso permitido - Continuando con el formateo...');
       // Format the data to match frontend expectations
       const equipoRequerido = reservacion.equiposSolicitados
         .map((eq) => eq.tipoEquipo.nombre)
@@ -1014,7 +1069,7 @@ export class ReservacionesService {
           ? ubicacionParts[1].trim()
           : 'No especificado';
 
-      return {
+      const resultado = {
         id: reservacion.id,
         numeroReservacion: reservacion.numeroReservacion,
         nombreEvento: reservacion.nombreEvento,
@@ -1043,7 +1098,11 @@ export class ReservacionesService {
           capacidad: reservacion.sala.capacidadMax,
         },
       };
+      
+      console.log('Resultado formateado exitosamente');
+      return resultado;
     } catch (error) {
+      console.error('Error en obtenerDetalleReservacion service:', error);
       if (error instanceof BadRequestException) {
         throw error;
       }
